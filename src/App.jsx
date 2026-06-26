@@ -127,6 +127,17 @@ const institutionColumns = [
   { key: "instrument", label: "장비명" },
 ];
 
+const nonconformanceInstitutionColumns = [
+  { key: "no", label: "No" },
+  { key: "code", label: "기관코드" },
+  { key: "name", label: "기관명" },
+  { key: "result", label: "결과" },
+  { key: "standardSdi", label: "기준SDI" },
+  { key: "detailSdi", label: "세부SDI" },
+  { key: "maker", label: "장비회사" },
+  { key: "instrument", label: "장비명" },
+];
+
 const doughnutPercentLabels = {
   id: "doughnutPercentLabels",
   afterDatasetsDraw(chart, _args, options) {
@@ -300,6 +311,68 @@ function getTrendData(selection) {
       year: date.getFullYear(),
       month: date.getMonth() + 1,
       value: Math.max(12, Math.round(base + wave + seasonal + drift)),
+    };
+  });
+}
+
+function colorWithAlpha(hex, alpha) {
+  const normalizedHex = hex.replace("#", "");
+  const red = parseInt(normalizedHex.slice(0, 2), 16);
+  const green = parseInt(normalizedHex.slice(2, 4), 16);
+  const blue = parseInt(normalizedHex.slice(4, 6), 16);
+
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+}
+
+function getParticipatingCount(testIndex) {
+  return Math.max(820, 1990 - testIndex * 43 - (testIndex % 4) * 17);
+}
+
+function getUnacceptableInstitutionCount(testIndex, specimenIndex) {
+  const rate = unacceptableRateData.tests[testIndex].values[specimenIndex];
+
+  if (rate <= 0) return 0;
+
+  return Math.max(1, Math.round(rate * 2.35) + ((testIndex + specimenIndex) % 2));
+}
+
+function getTotalUnacceptableInstitutionCount(testIndex) {
+  return unacceptableRateData.specimens.reduce(
+    (total, _specimen, specimenIndex) => total + getUnacceptableInstitutionCount(testIndex, specimenIndex),
+    0,
+  );
+}
+
+function getSdiValue(testIndex, specimenIndex) {
+  const rate = unacceptableRateData.tests[testIndex].values[specimenIndex];
+  const direction = (testIndex + specimenIndex) % 2 === 0 ? 1 : -1;
+  const base = 0.52 + rate * 0.72 + (testIndex % 5) * 0.28 + specimenIndex * 0.34;
+
+  return Number((direction * Math.min(5.4, base)).toFixed(2));
+}
+
+function getNonconformanceInstitutionRows(testIndex, specimenIndex) {
+  const count = getUnacceptableInstitutionCount(testIndex, specimenIndex);
+  const selectedTest = unacceptableRateData.tests[testIndex];
+  const selectedSpecimen = unacceptableRateData.specimens[specimenIndex];
+  const rowOffset = testIndex * 5 + specimenIndex * 3;
+
+  return Array.from({ length: count }, (_, index) => {
+    const sourceRow = institutionRows[(rowOffset + index) % institutionRows.length];
+    const sdiSign = (testIndex + specimenIndex + index) % 2 === 0 ? 1 : -1;
+    const sdi = sdiSign * (3.05 + ((testIndex + index) % 7) * 0.37 + specimenIndex * 0.18);
+
+    return {
+      ...sourceRow,
+      code: sourceRow.code,
+      name: sourceRow.name,
+      result: String(100 + ((testIndex + 1) * 13 + (specimenIndex + 1) * 17 + index * 9) % 180).padStart(4, "0"),
+      standardSdi: sdi.toFixed(2),
+      detailSdi: (sdi + sdiSign * 0.31).toFixed(2),
+      maker: sourceRow.maker,
+      instrument: sourceRow.instrument,
+      testCode: selectedTest.code,
+      specimenKey: selectedSpecimen.key,
     };
   });
 }
@@ -820,6 +893,363 @@ function SelectedTestDetail({ selection }) {
   );
 }
 
+function NonconformanceInstitutionGrid({ rows, selectedTest, selectedSpecimen, onClose }) {
+  return (
+    <div className="nonconformance-list" id="nonconformance-institution-list">
+      <div className="institution-list-head">
+        <h4>
+          {selectedTest.code} / {selectedSpecimen.key} Unacceptable 기관 목록
+        </h4>
+        <div className="institution-list-actions">
+          <span>전체 {rows.length}개 기관</span>
+          <button type="button" className="excel-button" onClick={onClose}>
+            닫기
+          </button>
+        </div>
+      </div>
+      <div className="institution-grid" role="grid" aria-label="부적합 분석 Unacceptable 기관 목록">
+        <div className="institution-grid-row institution-grid-header" role="row">
+          {nonconformanceInstitutionColumns.map((column) => (
+            <span role="columnheader" key={column.key}>{column.label}</span>
+          ))}
+        </div>
+        {rows.map((row, index) => (
+          <div className="institution-grid-row" role="row" key={`${row.code}-${row.specimenKey}-${index}`}>
+            {nonconformanceInstitutionColumns.map((column) => (
+              <span role="gridcell" key={column.key}>
+                {column.key === "no" ? index + 1 : row[column.key]}
+              </span>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function NonconformanceSdiChart({ selectedTestIndex, onSelectTest }) {
+  const canvasRef = useRef(null);
+  const chartRef = useRef(null);
+  const scrollRef = useRef(null);
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const selectedTest = unacceptableRateData.tests[selectedTestIndex];
+  const baseChartWidth = Math.max(1640, unacceptableRateData.tests.length * 64);
+  const chartWidth = Math.round(baseChartWidth * zoomLevel);
+  const clampZoom = (nextZoom) => Math.min(2, Math.max(0.75, nextZoom));
+
+  const changeZoom = (nextZoom) => {
+    setZoomLevel(clampZoom(nextZoom));
+  };
+
+  useEffect(() => {
+    const chart = new Chart(canvasRef.current, {
+      type: "bar",
+      data: {
+        labels: unacceptableRateData.tests.map((test) => test.code),
+        datasets: unacceptableRateData.specimens.map((specimen, specimenIndex) => ({
+          label: specimen.key,
+          data: unacceptableRateData.tests.map((_test, testIndex) => getSdiValue(testIndex, specimenIndex)),
+          backgroundColor: unacceptableRateData.tests.map((_test, testIndex) => (
+            testIndex === selectedTestIndex ? specimen.color : colorWithAlpha(specimen.color, 0.24)
+          )),
+          borderColor: unacceptableRateData.tests.map((_test, testIndex) => (
+            testIndex === selectedTestIndex ? specimen.color : colorWithAlpha(specimen.color, 0.44)
+          )),
+          borderWidth: 1,
+          borderRadius: 2,
+          barPercentage: 0.82,
+          categoryPercentage: 0.72,
+        })),
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        onClick(_event, elements) {
+          if (!elements.length) return;
+          onSelectTest(elements[0].index);
+        },
+        interaction: {
+          intersect: false,
+          mode: "index",
+        },
+        plugins: {
+          legend: {
+            display: false,
+          },
+          tooltip: {
+            callbacks: {
+              title(items) {
+                return unacceptableRateData.tests[items[0].dataIndex].code;
+              },
+              label(item) {
+                return `${item.dataset.label} SDI: ${item.parsed.y}`;
+              },
+            },
+          },
+        },
+        scales: {
+          x: {
+            title: {
+              display: true,
+              text: "검사항목",
+              color: "#25304a",
+              font: {
+                size: 12,
+                weight: "700",
+              },
+            },
+            grid: {
+              display: false,
+            },
+            ticks: {
+              color(context) {
+                return context.index === selectedTestIndex ? "#a00056" : "#1f2d4d";
+              },
+              font(context) {
+                return {
+                  size: 10,
+                  weight: context.index === selectedTestIndex ? "800" : "600",
+                };
+              },
+              maxRotation: 0,
+              minRotation: 0,
+            },
+          },
+          y: {
+            min: -6,
+            max: 6,
+            title: {
+              display: true,
+              text: "SDI",
+              color: "#25304a",
+              font: {
+                size: 12,
+                weight: "700",
+              },
+            },
+            border: {
+              color: "#cfd7e6",
+            },
+            grid: {
+              color(context) {
+                return context.tick.value === 0 ? "#8792a5" : "#dce3ed";
+              },
+            },
+            ticks: {
+              color: "#1f2d4d",
+              font: {
+                size: 11,
+              },
+              stepSize: 2,
+            },
+          },
+        },
+      },
+    });
+    chartRef.current = chart;
+
+    return () => {
+      chart.destroy();
+      chartRef.current = null;
+    };
+  }, [onSelectTest, selectedTestIndex]);
+
+  useEffect(() => {
+    chartRef.current?.resize();
+  }, [chartWidth]);
+
+  useEffect(() => {
+    const scrollNode = scrollRef.current;
+    if (!scrollNode) return undefined;
+
+    const handleWheel = (event) => {
+      if (!event.ctrlKey) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      setZoomLevel((currentZoom) => clampZoom(currentZoom + (event.deltaY < 0 ? 0.25 : -0.25)));
+    };
+
+    scrollNode.addEventListener("wheel", handleWheel, { passive: false });
+
+    return () => {
+      scrollNode.removeEventListener("wheel", handleWheel);
+    };
+  }, []);
+
+  return (
+    <div className="sdi-chart">
+      <div className="chart-toolbar">
+        <div className="chart-legend" aria-label="SDI 검체 범례">
+          {unacceptableRateData.specimens.map((specimen) => (
+            <span key={specimen.key}>
+              <i style={{ backgroundColor: specimen.color }} />
+              {specimen.key}
+            </span>
+          ))}
+        </div>
+        <div className="chart-zoom" aria-label="SDI 그래프 확대 축소">
+          <button type="button" onClick={() => changeZoom(zoomLevel - 0.25)} aria-label="SDI 그래프 축소">
+            -
+          </button>
+          <input
+            type="range"
+            min="75"
+            max="200"
+            step="25"
+            value={Math.round(zoomLevel * 100)}
+            aria-label="SDI 그래프 확대율"
+            onChange={(event) => changeZoom(Number(event.target.value) / 100)}
+          />
+          <button type="button" onClick={() => changeZoom(zoomLevel + 0.25)} aria-label="SDI 그래프 확대">
+            +
+          </button>
+          <button type="button" onClick={() => changeZoom(1)} aria-label="SDI 그래프 확대 초기화">
+            100%
+          </button>
+        </div>
+      </div>
+      <p className="sdi-selection">선택 검사: {selectedTest.code}</p>
+      <div ref={scrollRef} className="chart-scroll" aria-label="검사항목별 SDI 그래프 스크롤 영역">
+        <div className="sdi-canvas" style={{ width: `${chartWidth}px` }}>
+          <canvas ref={canvasRef} aria-label="검사항목별 SDI 분포 막대그래프" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function NonconformanceAnalysis() {
+  const [selectedTestIndex, setSelectedTestIndex] = useState(0);
+  const [institutionTarget, setInstitutionTarget] = useState(null);
+  const selectedTest = unacceptableRateData.tests[selectedTestIndex];
+  const selectedTargetTest = institutionTarget ? unacceptableRateData.tests[institutionTarget.testIndex] : null;
+  const selectedTargetSpecimen = institutionTarget
+    ? unacceptableRateData.specimens[institutionTarget.specimenIndex]
+    : null;
+  const selectedRows = institutionTarget
+    ? getNonconformanceInstitutionRows(institutionTarget.testIndex, institutionTarget.specimenIndex)
+    : [];
+
+  const selectCard = (testIndex) => {
+    setSelectedTestIndex(testIndex);
+  };
+
+  const handleCardKeyDown = (event, testIndex) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    selectCard(testIndex);
+  };
+
+  const toggleInstitutionList = (event, testIndex, specimenIndex) => {
+    event.stopPropagation();
+    setSelectedTestIndex(testIndex);
+    setInstitutionTarget((currentTarget) => {
+      if (currentTarget?.testIndex === testIndex && currentTarget?.specimenIndex === specimenIndex) {
+        return null;
+      }
+
+      return { testIndex, specimenIndex };
+    });
+  };
+
+  return (
+    <section className="nonconformance-view">
+      <article className="panel nonconformance-card-panel">
+        <div className="panel-head">
+          <div>
+            <h3>검사항목별 Unacceptable 상세현황</h3>
+            <p>검체별 비교를 통해 특정 검체 문제 여부 파악</p>
+          </div>
+          <span>선택 검사: {selectedTest.code}</span>
+        </div>
+
+        <div className="unacc-card-scroll" aria-label="검사항목별 Unacceptable 상세현황 카드 목록">
+          <div className="unacc-card-grid">
+            {unacceptableRateData.tests.map((test, testIndex) => {
+              const totalUnacceptableCount = getTotalUnacceptableInstitutionCount(testIndex);
+              const isSelected = selectedTestIndex === testIndex;
+
+              return (
+                <article
+                  className={`unacc-card${isSelected ? " selected" : ""}`}
+                  key={test.code}
+                  role="button"
+                  tabIndex={0}
+                  aria-pressed={isSelected}
+                  onClick={() => selectCard(testIndex)}
+                  onKeyDown={(event) => handleCardKeyDown(event, testIndex)}
+                >
+                  <div className="unacc-card-title">
+                    <h4>{test.code}</h4>
+                  </div>
+
+                  <div className="unacc-card-metrics">
+                    <div>
+                      <span>참여기관</span>
+                      <strong>{getParticipatingCount(testIndex).toLocaleString()}</strong>
+                    </div>
+                    <div>
+                      <span>1개이상 Unacc판정받은기관</span>
+                      <strong className="danger">{totalUnacceptableCount || "-"}</strong>
+                    </div>
+                  </div>
+
+                  <div className="unacc-specimen-grid">
+                    {unacceptableRateData.specimens.map((specimen, specimenIndex) => {
+                      const count = getUnacceptableInstitutionCount(testIndex, specimenIndex);
+
+                      return (
+                        <div className="unacc-specimen-cell" key={specimen.key}>
+                          <span>{specimen.key}</span>
+                          <b>{formatPercent(test.values[specimenIndex])}</b>
+                          <button
+                            type="button"
+                            className="unacc-count-button"
+                            aria-controls="nonconformance-institution-list"
+                            aria-expanded={
+                              institutionTarget?.testIndex === testIndex
+                              && institutionTarget?.specimenIndex === specimenIndex
+                            }
+                            onClick={(event) => toggleInstitutionList(event, testIndex, specimenIndex)}
+                          >
+                            {count}기관
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </div>
+
+        {institutionTarget && selectedTargetTest && selectedTargetSpecimen && (
+          <NonconformanceInstitutionGrid
+            rows={selectedRows}
+            selectedTest={selectedTargetTest}
+            selectedSpecimen={selectedTargetSpecimen}
+            onClose={() => setInstitutionTarget(null)}
+          />
+        )}
+      </article>
+
+      <article className="panel sdi-panel">
+        <div className="panel-head">
+          <div>
+            <h3>검사항목별 SDI 분포</h3>
+            <p>상단 카드에서 검사를 선택하면 해당 검사가 강조됩니다</p>
+          </div>
+          <span>단위: SDI</span>
+        </div>
+        <NonconformanceSdiChart selectedTestIndex={selectedTestIndex} onSelectTest={setSelectedTestIndex} />
+      </article>
+    </section>
+  );
+}
+
 function App() {
   const [selection, setSelection] = useState({ testIndex: 0, specimenIndex: 0 });
   const [activeTab, setActiveTab] = useState("overview");
@@ -916,6 +1346,8 @@ function App() {
               </article>
             </section>
           </>
+        ) : activeTab === "nonconformance" ? (
+          <NonconformanceAnalysis />
         ) : (
           <section className="panel tab-empty-panel">
             <h2>{activeTabLabel}</h2>
