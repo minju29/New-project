@@ -13,27 +13,25 @@ npm.cmd run dev
 
 ## GitHub Pages 배포
 
-이 프로젝트는 GitHub Pages 자동 배포가 설정되어 있습니다.
+이 프로젝트는 GitHub Pages의 `main /docs` 배포 방식에 맞춰져 있습니다.
 
-1. GitHub에 저장소를 만듭니다.
-2. 이 프로젝트를 저장소에 push합니다.
-3. GitHub 저장소에서 `Settings > Pages`로 이동합니다.
-4. `Build and deployment`의 `Source`를 `GitHub Actions`로 선택합니다.
-5. `Actions` 탭에서 `Deploy to GitHub Pages` 작업이 성공하면 배포 주소가 생성됩니다.
-
-주소는 보통 아래 형식입니다.
-
-```text
-https://깃허브계정.github.io/저장소명/
-```
-
-## 처음 GitHub에 올리는 경우
+배포용 파일을 다시 만들 때는 아래 명령을 실행합니다.
 
 ```bash
-git init
-git add .
-git commit -m "Initial dashboard"
-git branch -M main
-git remote add origin https://github.com/깃허브계정/저장소명.git
-git push -u origin main
+npm.cmd run build:pages
+```
+
+그러면 `docs` 폴더에 GitHub Pages가 바로 보여줄 수 있는 정적 파일이 생성됩니다.
+
+GitHub 저장소에서는 아래처럼 설정합니다.
+
+1. 저장소에서 `Settings > Pages`로 이동합니다.
+2. `Build and deployment`의 `Source`를 `Deploy from a branch`로 선택합니다.
+3. `Branch`를 `main`, 폴더를 `/docs`로 선택합니다.
+4. `Save`를 누릅니다.
+
+배포 주소는 아래입니다.
+
+```text
+https://minju29.github.io/New-project/
 ```
