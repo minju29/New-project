@@ -1061,6 +1061,24 @@ function NonconformanceSdiChart({ selectedTestIndex, onSelectTest }) {
 
   useEffect(() => {
     const scrollNode = scrollRef.current;
+    if (!scrollNode) return;
+
+    const categoryWidth = chartWidth / unacceptableRateData.tests.length;
+    const selectedCenter = categoryWidth * selectedTestIndex + categoryWidth / 2;
+    const maxScrollLeft = Math.max(0, scrollNode.scrollWidth - scrollNode.clientWidth);
+    const nextScrollLeft = Math.min(
+      maxScrollLeft,
+      Math.max(0, selectedCenter - scrollNode.clientWidth / 2),
+    );
+
+    scrollNode.scrollTo({
+      left: nextScrollLeft,
+      behavior: "smooth",
+    });
+  }, [chartWidth, selectedTestIndex]);
+
+  useEffect(() => {
+    const scrollNode = scrollRef.current;
     if (!scrollNode) return undefined;
 
     const handleWheel = (event) => {
