@@ -138,6 +138,35 @@ const nonconformanceInstitutionColumns = [
   { key: "instrument", label: "장비명" },
 ];
 
+const statisticsColumns = [
+  { key: "testItem", label: "검사항목", type: "text" },
+  { key: "specimenName", label: "검체명", type: "text" },
+  { key: "category", label: "구분", type: "text" },
+  { key: "n", label: "기관수(N)", type: "number" },
+  { key: "mean", label: "Mean", type: "number" },
+  { key: "median", label: "Median", type: "number" },
+  { key: "sd", label: "SD", type: "number" },
+  { key: "cv", label: "CV(%)", type: "number" },
+  { key: "min", label: "Min", type: "number" },
+  { key: "max", label: "Max", type: "number" },
+];
+
+const numericCompareOperators = [
+  { value: "", label: "비교" },
+  { value: ">=", label: "≥" },
+  { value: ">", label: ">" },
+  { value: "=", label: "=" },
+  { value: "<=", label: "≤" },
+  { value: "<", label: "<" },
+];
+
+const textCompareOperators = [
+  { value: "", label: "비교" },
+  { value: "contains", label: "포함" },
+  { value: "equals", label: "일치" },
+  { value: "notContains", label: "제외" },
+];
+
 const doughnutPercentLabels = {
   id: "doughnutPercentLabels",
   afterDatasetsDraw(chart, _args, options) {
@@ -171,6 +200,114 @@ const doughnutPercentLabels = {
 
 function formatPercent(value) {
   return `${Number(value).toFixed(2)}%`;
+}
+
+function formatStatisticValue(row, column) {
+  const value = row[column.key];
+
+  if (column.key === "n") return Number(value).toLocaleString();
+  if (column.type === "number") return Number(value).toFixed(2);
+
+  return value;
+}
+
+function createDefaultStatisticsFilters() {
+  return Object.fromEntries(
+    statisticsColumns.map((column) => [
+      column.key,
+      {
+        search: "",
+        operator: "",
+        compareValue: "",
+      },
+    ]),
+  );
+}
+
+function compareNumberValue(cellValue, operator, compareValue) {
+  const cellNumber = Number(cellValue);
+  const targetNumber = Number(compareValue);
+
+  if (!Number.isFinite(cellNumber) || !Number.isFinite(targetNumber)) return true;
+  if (operator === ">=") return cellNumber >= targetNumber;
+  if (operator === ">") return cellNumber > targetNumber;
+  if (operator === "=") return cellNumber === targetNumber;
+  if (operator === "<=") return cellNumber <= targetNumber;
+  if (operator === "<") return cellNumber < targetNumber;
+
+  return true;
+}
+
+function compareTextValue(cellValue, operator, compareValue) {
+  const normalizedCellValue = String(cellValue).toLowerCase();
+  const normalizedCompareValue = String(compareValue).trim().toLowerCase();
+
+  if (!normalizedCompareValue) return true;
+  if (operator === "contains") return normalizedCellValue.includes(normalizedCompareValue);
+  if (operator === "equals") return normalizedCellValue === normalizedCompareValue;
+  if (operator === "notContains") return !normalizedCellValue.includes(normalizedCompareValue);
+
+  return true;
+}
+
+function rowMatchesStatisticsFilters(row, filters) {
+  return statisticsColumns.every((column) => {
+    const filter = filters[column.key] ?? {};
+    const rawValue = row[column.key];
+    const displayValue = formatStatisticValue(row, column);
+    const searchValue = filter.search.trim().toLowerCase();
+
+    if (searchValue && !String(displayValue).toLowerCase().includes(searchValue)) {
+      return false;
+    }
+
+    if (!filter.operator || !String(filter.compareValue).trim()) {
+      return true;
+    }
+
+    if (column.type === "number") {
+      return compareNumberValue(rawValue, filter.operator, filter.compareValue);
+    }
+
+    return compareTextValue(rawValue, filter.operator, filter.compareValue);
+  });
+}
+
+function getStatisticsRows() {
+  const categories = [
+    { label: "전체", nOffset: 0, meanShift: 0, sdScale: 1 },
+    { label: "공통평가", nOffset: -26, meanShift: 0.18, sdScale: 0.94 },
+    { label: "동일장비", nOffset: -58, meanShift: -0.12, sdScale: 1.08 },
+  ];
+
+  return unacceptableRateData.tests.flatMap((test, testIndex) => (
+    unacceptableRateData.specimens.flatMap((specimen, specimenIndex) => (
+      categories.map((category, categoryIndex) => {
+        const rate = test.values[specimenIndex];
+        const n = Math.max(72, getParticipatingCount(testIndex) - specimenIndex * 31 + category.nOffset);
+        const mean = Number((68 + testIndex * 3.85 + specimenIndex * 2.25 + rate * 2.8 + category.meanShift).toFixed(2));
+        const median = Number((mean - 0.18 + ((testIndex + specimenIndex + categoryIndex) % 3) * 0.11).toFixed(2));
+        const sd = Number(((1.15 + (testIndex % 6) * 0.31 + specimenIndex * 0.18 + rate * 0.12) * category.sdScale).toFixed(2));
+        const cv = Number(((sd / mean) * 100).toFixed(2));
+        const min = Number((mean - sd * (2.25 + categoryIndex * 0.2)).toFixed(2));
+        const max = Number((mean + sd * (2.45 + specimenIndex * 0.16)).toFixed(2));
+
+        return {
+          id: `${test.code}-${specimen.key}-${category.label}`,
+          testItem: test.code,
+          specimenName: specimen.key,
+          category: category.label,
+          n,
+          mean,
+          median,
+          sd,
+          cv,
+          min,
+          max,
+        };
+      })
+    ))
+  ));
 }
 
 function escapeHtml(value) {
@@ -1268,6 +1405,120 @@ function NonconformanceAnalysis() {
   );
 }
 
+function StatisticsDetail() {
+  const [filters, setFilters] = useState(createDefaultStatisticsFilters);
+  const rows = getStatisticsRows();
+  const filteredRows = rows.filter((row) => rowMatchesStatisticsFilters(row, filters));
+  const hasActiveFilters = statisticsColumns.some((column) => {
+    const filter = filters[column.key];
+    return filter.search || filter.operator || filter.compareValue;
+  });
+
+  const updateFilter = (columnKey, nextValue) => {
+    setFilters((currentFilters) => ({
+      ...currentFilters,
+      [columnKey]: {
+        ...currentFilters[columnKey],
+        ...nextValue,
+      },
+    }));
+  };
+
+  return (
+    <section className="statistics-view">
+      <article className="panel statistics-panel">
+        <div className="panel-head statistics-head">
+          <div>
+            <h3>검체별 기본통계</h3>
+            <p>컬럼별 검색과 비교 조건을 조합해 원하는 통계 row만 확인할 수 있습니다</p>
+          </div>
+          <div className="statistics-actions">
+            <span>전체 {rows.length.toLocaleString()}건 / 표시 {filteredRows.length.toLocaleString()}건</span>
+            <button
+              type="button"
+              disabled={!hasActiveFilters}
+              onClick={() => setFilters(createDefaultStatisticsFilters())}
+            >
+              필터 초기화
+            </button>
+          </div>
+        </div>
+
+        <div className="statistics-table-wrap">
+          <table className="statistics-table">
+            <thead>
+              <tr>
+                {statisticsColumns.map((column) => (
+                  <th key={column.key}>{column.label}</th>
+                ))}
+              </tr>
+              <tr className="statistics-filter-row">
+                {statisticsColumns.map((column) => {
+                  const filter = filters[column.key];
+                  const operators = column.type === "number" ? numericCompareOperators : textCompareOperators;
+
+                  return (
+                    <th key={`${column.key}-filter`}>
+                      <div className="statistics-filter">
+                        <input
+                          type="search"
+                          value={filter.search}
+                          placeholder="검색"
+                          aria-label={`${column.label} 검색`}
+                          onChange={(event) => updateFilter(column.key, { search: event.target.value })}
+                        />
+                        <div className="statistics-compare">
+                          <select
+                            value={filter.operator}
+                            aria-label={`${column.label} 비교 조건`}
+                            onChange={(event) => updateFilter(column.key, { operator: event.target.value })}
+                          >
+                            {operators.map((operator) => (
+                              <option value={operator.value} key={operator.value}>
+                                {operator.label}
+                              </option>
+                            ))}
+                          </select>
+                          <input
+                            type={column.type === "number" ? "number" : "text"}
+                            value={filter.compareValue}
+                            placeholder="값"
+                            aria-label={`${column.label} 비교 값`}
+                            onChange={(event) => updateFilter(column.key, { compareValue: event.target.value })}
+                          />
+                        </div>
+                      </div>
+                    </th>
+                  );
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              {filteredRows.length > 0 ? (
+                filteredRows.map((row) => (
+                  <tr key={row.id}>
+                    {statisticsColumns.map((column) => (
+                      <td className={column.type === "number" ? "number-cell" : undefined} key={column.key}>
+                        {formatStatisticValue(row, column)}
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td className="statistics-empty" colSpan={statisticsColumns.length}>
+                    조건에 맞는 데이터가 없습니다
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </article>
+    </section>
+  );
+}
+
 function App() {
   const [selection, setSelection] = useState({ testIndex: 0, specimenIndex: 0 });
   const [activeTab, setActiveTab] = useState("overview");
@@ -1366,6 +1617,8 @@ function App() {
           </>
         ) : activeTab === "nonconformance" ? (
           <NonconformanceAnalysis />
+        ) : activeTab === "statistics" ? (
+          <StatisticsDetail />
         ) : (
           <section className="panel tab-empty-panel">
             <h2>{activeTabLabel}</h2>
