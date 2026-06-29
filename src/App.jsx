@@ -15,6 +15,7 @@ import {
   Tooltip,
 } from "chart.js";
 import { statisticsRows } from "./statisticsData.js";
+import { trendTableData } from "./trendData.js";
 
 Chart.register(
   BarController,
@@ -2066,6 +2067,318 @@ function StatisticsDetail() {
   );
 }
 
+function formatTrendRate(value) {
+  if (value === null || value === undefined || value === "") return "-";
+  return `${Number(value).toFixed(1)}%`;
+}
+
+function formatTrendChange(value) {
+  if (value === null || value === undefined || value === "") return "-";
+
+  const roundedValue = Number(value.toFixed(1));
+  if (Math.abs(roundedValue) < 0.1) return "0";
+
+  return `${roundedValue > 0 ? "+" : ""}${roundedValue.toFixed(1)}`;
+}
+
+function getTrendRateTone(value) {
+  if (value === null || value === undefined || value === "") return "empty";
+  if (Number(value) >= 5) return "high";
+  if (Number(value) >= 2) return "warning";
+  return "low";
+}
+
+function getTrendChangeTone(value) {
+  if (value === null || value === undefined || value === "") return "empty";
+  if (Number(value) >= 3) return "surge";
+  if (Number(value) > 0.05) return "up";
+  if (Number(value) < -0.05) return "down";
+  return "flat";
+}
+
+function getTrendChangeIcon(tone) {
+  if (tone === "surge" || tone === "up") return "▲";
+  if (tone === "down") return "▼";
+  if (tone === "flat") return "→";
+  return "";
+}
+
+function formatTrendCount(value) {
+  if (value === null || value === undefined || value === "") return "-";
+  return `${Number(value).toLocaleString()}기관`;
+}
+
+function TrendAnalysisChart({ row }) {
+  const canvasRef = useRef(null);
+
+  useEffect(() => {
+    if (!canvasRef.current || !row) return undefined;
+
+    const chart = new Chart(canvasRef.current, {
+      type: "bar",
+      data: {
+        labels: row.chartValues.map((item) => item.label),
+        datasets: [
+          {
+            type: "bar",
+            label: "참여기관수",
+            data: row.chartValues.map((item) => item.participatingCount),
+            yAxisID: "participants",
+            backgroundColor: "rgba(247, 190, 196, 0.58)",
+            borderColor: "rgba(247, 190, 196, 0.95)",
+            borderWidth: 1,
+            borderRadius: 4,
+            barPercentage: 0.48,
+            categoryPercentage: 0.64,
+            order: 2,
+          },
+          {
+            type: "line",
+            label: "Unacceptable 기관수",
+            data: row.chartValues.map((item) => item.unacceptableCount),
+            yAxisID: "unacceptable",
+            borderColor: "#ef3434",
+            backgroundColor: "#ef3434",
+            borderWidth: 3,
+            pointRadius: 4,
+            pointHoverRadius: 5,
+            tension: 0.32,
+            spanGaps: false,
+            order: 1,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+          intersect: false,
+          mode: "index",
+        },
+        plugins: {
+          legend: {
+            position: "bottom",
+            labels: {
+              boxWidth: 10,
+              color: "#6d7a8c",
+              font: {
+                size: 11,
+                weight: "700",
+              },
+              usePointStyle: true,
+            },
+          },
+          tooltip: {
+            callbacks: {
+              label(context) {
+                return `${context.dataset.label}: ${formatTrendCount(
+                  context.parsed.y,
+                )}`;
+              },
+              afterBody(items) {
+                const dataIndex = items[0]?.dataIndex;
+                const point = row.chartValues[dataIndex];
+                if (!point || point.rate === null) return "";
+                return `Unacceptable Rate: ${formatTrendRate(point.rate)}`;
+              },
+            },
+          },
+        },
+        scales: {
+          x: {
+            grid: {
+              borderDash: [2, 6],
+              color: "#d7dee8",
+            },
+            ticks: {
+              color: "#7d8898",
+              font: {
+                size: 11,
+                weight: "700",
+              },
+            },
+          },
+          unacceptable: {
+            type: "linear",
+            position: "left",
+            beginAtZero: true,
+            title: {
+              display: true,
+              text: "Unacceptable 기관수",
+              color: "#7d8898",
+              font: {
+                size: 11,
+                weight: "800",
+              },
+            },
+            grid: {
+              color: "#e7ebf1",
+            },
+            ticks: {
+              color: "#93a0b1",
+              precision: 0,
+            },
+          },
+          participants: {
+            type: "linear",
+            position: "right",
+            beginAtZero: true,
+            title: {
+              display: true,
+              text: "참여기관수",
+              color: "#7d8898",
+              font: {
+                size: 11,
+                weight: "800",
+              },
+            },
+            grid: {
+              drawOnChartArea: false,
+            },
+            ticks: {
+              color: "#93a0b1",
+              precision: 0,
+            },
+          },
+        },
+      },
+    });
+
+    return () => chart.destroy();
+  }, [row]);
+
+  return (
+    <div className="trend-combo-chart">
+      <canvas
+        ref={canvasRef}
+        aria-label="회차별 참여기관수와 Unacceptable 기관수 추이 그래프"
+      />
+    </div>
+  );
+}
+
+function TrendAnalysis() {
+  const { periods, rows } = trendTableData;
+  const [selectedCode, setSelectedCode] = useState(rows[0]?.code ?? "");
+  const chartPanelRef = useRef(null);
+  const selectedRow = rows.find((row) => row.code === selectedCode) ?? rows[0];
+
+  const selectTrendRow = (rowCode) => {
+    setSelectedCode(rowCode);
+    window.requestAnimationFrame(() => {
+      chartPanelRef.current?.scrollIntoView({
+        block: "nearest",
+        behavior: "smooth",
+      });
+    });
+  };
+
+  return (
+    <section className="trend-analysis-view">
+      <article className="panel trend-analysis-panel">
+        <div className="trend-analysis-title">
+          <h3>검체별 전체 검사항목 x 4회차 추이 테이블</h3>
+          <span>▲▼ = 직전 회차 대비 변화</span>
+        </div>
+
+        <div className="trend-table-wrap">
+          <table className="trend-analysis-table">
+            <thead>
+              <tr>
+                <th scope="col">검사항목</th>
+                {periods.map((period) => (
+                  <th
+                    className={period.isCurrent ? "is-current" : undefined}
+                    key={period.key}
+                    scope="col"
+                  >
+                    {period.label}
+                  </th>
+                ))}
+                <th scope="col">추세</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => {
+                const changeTone = getTrendChangeTone(row.trendValue);
+                const isSelected = selectedRow?.code === row.code;
+
+                return (
+                  <tr
+                    className={isSelected ? "is-selected" : undefined}
+                    key={row.code}
+                    tabIndex={0}
+                    onClick={() => selectTrendRow(row.code)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        selectTrendRow(row.code);
+                      }
+                    }}
+                  >
+                    <th scope="row">{row.displayName}</th>
+                    {row.periodValues.map((value, index) => {
+                      const period = periods[index];
+                      const rateTone = getTrendRateTone(value.rate);
+                      const className = [
+                        "trend-rate-cell",
+                        `is-${rateTone}`,
+                        period?.isCurrent ? "is-current" : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" ");
+                      const countTitle =
+                        value.rate === null
+                          ? "해당 회차 데이터 없음"
+                          : `Unacceptable 기관수 ${Number(
+                              value.unacceptableCount,
+                            ).toLocaleString()} / 검사시행 기관수 ${Number(
+                              value.participatingCount,
+                            ).toLocaleString()}`;
+
+                      return (
+                        <td
+                          className={className}
+                          key={`${row.code}-${value.periodKey}`}
+                          title={countTitle}
+                        >
+                          {formatTrendRate(value.rate)}
+                        </td>
+                      );
+                    })}
+                    <td className={`trend-change-cell is-${changeTone}`}>
+                      <span aria-hidden="true">
+                        {getTrendChangeIcon(changeTone)}
+                      </span>
+                      {formatTrendChange(row.trendValue)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+      {selectedRow && (
+        <article
+          className="panel trend-analysis-chart-panel"
+          ref={chartPanelRef}
+        >
+          <div className="panel-head">
+            <div>
+              <h3>회차별 Unacc 기관수 추이</h3>
+              <p>{selectedRow.displayName}</p>
+            </div>
+            <span>막대: 참여기관수 · 선: Unacceptable 기관수</span>
+          </div>
+          <TrendAnalysisChart row={selectedRow} />
+        </article>
+      )}
+    </section>
+  );
+}
+
 function App() {
   const [selection, setSelection] = useState({
     testIndex: 0,
@@ -2171,6 +2484,8 @@ function App() {
           <NonconformanceAnalysis />
         ) : activeTab === "statistics" ? (
           <StatisticsDetail />
+        ) : activeTab === "trend" ? (
+          <TrendAnalysis />
         ) : (
           <section className="panel tab-empty-panel">
             <h2>{activeTabLabel}</h2>
