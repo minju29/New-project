@@ -250,9 +250,10 @@ function compareTextValue(cellValue, operator, compareValue) {
   return true;
 }
 
-function rowMatchesStatisticsFilters(row, filters) {
+function rowMatchesStatisticsFilters(row, filters, appliedComparisons) {
   return statisticsColumns.every((column) => {
     const filter = filters[column.key] ?? {};
+    const comparisonFilter = appliedComparisons[column.key] ?? {};
     const rawValue = row[column.key];
     const displayValue = formatStatisticValue(row, column);
     const searchValue = filter.search.trim().toLowerCase();
@@ -261,15 +262,15 @@ function rowMatchesStatisticsFilters(row, filters) {
       return false;
     }
 
-    if (!filter.operator || !String(filter.compareValue).trim()) {
+    if (!comparisonFilter.operator || !String(comparisonFilter.compareValue).trim()) {
       return true;
     }
 
     if (column.type === "number") {
-      return compareNumberValue(rawValue, filter.operator, filter.compareValue);
+      return compareNumberValue(rawValue, comparisonFilter.operator, comparisonFilter.compareValue);
     }
 
-    return compareTextValue(rawValue, filter.operator, filter.compareValue);
+    return compareTextValue(rawValue, comparisonFilter.operator, comparisonFilter.compareValue);
   });
 }
 
@@ -1407,11 +1408,20 @@ function NonconformanceAnalysis() {
 
 function StatisticsDetail() {
   const [filters, setFilters] = useState(createDefaultStatisticsFilters);
+  const [appliedComparisons, setAppliedComparisons] = useState(createDefaultStatisticsFilters);
   const rows = getStatisticsRows();
-  const filteredRows = rows.filter((row) => rowMatchesStatisticsFilters(row, filters));
+  const filteredRows = rows.filter((row) => rowMatchesStatisticsFilters(row, filters, appliedComparisons));
   const hasActiveFilters = statisticsColumns.some((column) => {
     const filter = filters[column.key];
-    return filter.search || filter.operator || filter.compareValue;
+    const comparisonFilter = appliedComparisons[column.key];
+    return filter.search || comparisonFilter.operator || comparisonFilter.compareValue;
+  });
+  const hasPendingComparisons = statisticsColumns.some((column) => {
+    const filter = filters[column.key];
+    const comparisonFilter = appliedComparisons[column.key];
+
+    return filter.operator !== comparisonFilter.operator
+      || filter.compareValue !== comparisonFilter.compareValue;
   });
 
   const updateFilter = (columnKey, nextValue) => {
@@ -1424,6 +1434,24 @@ function StatisticsDetail() {
     }));
   };
 
+  const applyComparisonFilters = () => {
+    setAppliedComparisons(Object.fromEntries(
+      statisticsColumns.map((column) => [
+        column.key,
+        {
+          search: "",
+          operator: filters[column.key].operator,
+          compareValue: filters[column.key].compareValue,
+        },
+      ]),
+    ));
+  };
+
+  const resetFilters = () => {
+    setFilters(createDefaultStatisticsFilters());
+    setAppliedComparisons(createDefaultStatisticsFilters());
+  };
+
   return (
     <section className="statistics-view">
       <article className="panel statistics-panel">
@@ -1434,10 +1462,19 @@ function StatisticsDetail() {
           </div>
           <div className="statistics-actions">
             <span>전체 {rows.length.toLocaleString()}건 / 표시 {filteredRows.length.toLocaleString()}건</span>
+            {hasPendingComparisons && <em>비교 조건 미적용</em>}
+            <button
+              type="button"
+              className="primary"
+              disabled={!hasPendingComparisons}
+              onClick={applyComparisonFilters}
+            >
+              비교 실행
+            </button>
             <button
               type="button"
               disabled={!hasActiveFilters}
-              onClick={() => setFilters(createDefaultStatisticsFilters())}
+              onClick={resetFilters}
             >
               필터 초기화
             </button>

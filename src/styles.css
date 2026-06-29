@@ -501,14 +501,37 @@ button {
   cursor: pointer;
 }
 
+.statistics-actions em {
+  color: var(--magenta);
+  font-style: normal;
+  font-weight: 900;
+}
+
+.statistics-actions button.primary {
+  color: #fff;
+  border-color: var(--magenta);
+  background: var(--magenta);
+}
+
 .statistics-actions button:hover:not(:disabled) {
   border-color: #c6cedc;
   background: #f3f5f8;
 }
 
+.statistics-actions button.primary:hover:not(:disabled) {
+  border-color: var(--magenta-dark);
+  background: var(--magenta-dark);
+}
+
 .statistics-actions button:disabled {
   color: #a5adba;
   cursor: not-allowed;
+}
+
+.statistics-actions button.primary:disabled {
+  color: #c7cbd5;
+  border-color: #e1e5ee;
+  background: #f3f5f8;
 }
 
 .statistics-table-wrap {
