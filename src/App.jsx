@@ -2134,9 +2134,9 @@ function TrendAnalysisChart({ row }) {
           },
           {
             type: "line",
-            label: "Unacceptable 기관수",
-            data: row.chartValues.map((item) => item.unacceptableCount),
-            yAxisID: "unacceptable",
+            label: "Unacceptable Rate (%)",
+            data: row.chartValues.map((item) => item.rate),
+            yAxisID: "rate",
             borderColor: "#ef3434",
             backgroundColor: "#ef3434",
             borderWidth: 3,
@@ -2171,15 +2171,15 @@ function TrendAnalysisChart({ row }) {
           tooltip: {
             callbacks: {
               label(context) {
+                if (context.dataset.yAxisID === "rate") {
+                  return `${context.dataset.label}: ${formatTrendRate(
+                    context.parsed.y,
+                  )}`;
+                }
+
                 return `${context.dataset.label}: ${formatTrendCount(
                   context.parsed.y,
                 )}`;
-              },
-              afterBody(items) {
-                const dataIndex = items[0]?.dataIndex;
-                const point = row.chartValues[dataIndex];
-                if (!point || point.rate === null) return "";
-                return `Unacceptable Rate: ${formatTrendRate(point.rate)}`;
               },
             },
           },
@@ -2198,13 +2198,13 @@ function TrendAnalysisChart({ row }) {
               },
             },
           },
-          unacceptable: {
+          rate: {
             type: "linear",
             position: "left",
             beginAtZero: true,
             title: {
               display: true,
-              text: "Unacceptable 기관수",
+              text: "Unacceptable Rate (%)",
               color: "#7d8898",
               font: {
                 size: 11,
@@ -2216,7 +2216,9 @@ function TrendAnalysisChart({ row }) {
             },
             ticks: {
               color: "#93a0b1",
-              precision: 0,
+              callback(value) {
+                return `${value}%`;
+              },
             },
           },
           participants: {
@@ -2251,7 +2253,7 @@ function TrendAnalysisChart({ row }) {
     <div className="trend-combo-chart">
       <canvas
         ref={canvasRef}
-        aria-label="회차별 참여기관수와 Unacceptable 기관수 추이 그래프"
+        aria-label="회차별 참여기관수와 Unacceptable Rate 추이 그래프"
       />
     </div>
   );
@@ -2367,10 +2369,10 @@ function TrendAnalysis() {
         >
           <div className="panel-head">
             <div>
-              <h3>회차별 Unacc 기관수 추이</h3>
+              <h3>회차별 Unacc Rate 추이</h3>
               <p>{selectedRow.displayName}</p>
             </div>
-            <span>막대: 참여기관수 · 선: Unacceptable 기관수</span>
+            <span>막대: 참여기관수 · 선: Unacceptable Rate (%)</span>
           </div>
           <TrendAnalysisChart row={selectedRow} />
         </article>
