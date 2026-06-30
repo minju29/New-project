@@ -547,6 +547,42 @@ function rowMatchesStatisticsScope(row, scope) {
   return true;
 }
 
+function sortStatisticsRows(rows, sortConfig) {
+  if (!sortConfig.key) return rows;
+
+  const column = statisticsColumns.find(
+    (statisticsColumn) => statisticsColumn.key === sortConfig.key,
+  );
+  if (!column) return rows;
+
+  return rows
+    .map((row, index) => ({ row, index }))
+    .sort((left, right) => {
+      const leftValue = left.row[column.key];
+      const rightValue = right.row[column.key];
+      const leftIsEmpty =
+        leftValue === null || leftValue === undefined || leftValue === "";
+      const rightIsEmpty =
+        rightValue === null || rightValue === undefined || rightValue === "";
+
+      if (leftIsEmpty && rightIsEmpty) return left.index - right.index;
+      if (leftIsEmpty) return 1;
+      if (rightIsEmpty) return -1;
+
+      const comparison =
+        column.type === "number"
+          ? Number(leftValue) - Number(rightValue)
+          : String(leftValue).localeCompare(String(rightValue), "ko", {
+              numeric: true,
+              sensitivity: "base",
+            });
+
+      if (comparison === 0) return left.index - right.index;
+      return sortConfig.direction === "asc" ? comparison : -comparison;
+    })
+    .map((item) => item.row);
+}
+
 function getStatisticsRows() {
   return statisticsRows;
 }
@@ -605,6 +641,89 @@ function downloadInstitutionExcel({ selectedTest, selectedSpecimen, rows }) {
       <body>
         <table>
           <caption>${escapeHtml(selectedTest.name)} / ${escapeHtml(selectedSpecimen.key)} Unacceptable 기관 목록</caption>
+          <thead><tr>${headerCells}</tr></thead>
+          <tbody>${bodyRows}</tbody>
+        </table>
+      </body>
+    </html>
+  `;
+
+  const blob = new Blob(["\ufeff", html], {
+    type: "application/vnd.ms-excel;charset=utf-8",
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${safeFileName}.xls`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function downloadStatisticsExcel({ rows, scopeLabel, sortConfig }) {
+  const safeDate = new Date().toISOString().slice(0, 10);
+  const safeFileName = `검체별_기본통계_${safeDate}`.replace(
+    /[\\/:*?"<>|]/g,
+    "_",
+  );
+  const sortColumn = statisticsColumns.find(
+    (column) => column.key === sortConfig.key,
+  );
+  const sortText = sortColumn
+    ? `${sortColumn.label} ${sortConfig.direction === "asc" ? "오름차순" : "내림차순"}`
+    : "정렬 없음";
+
+  const headerCells = statisticsColumns
+    .map((column) => `<th>${escapeHtml(column.label)}</th>`)
+    .join("");
+  const bodyRows = rows
+    .map(
+      (row) =>
+        `<tr>${statisticsColumns
+          .map((column) => {
+            const value = row[column.key];
+            const isEmpty =
+              value === null || value === undefined || value === "";
+            const cellValue = isEmpty
+              ? "-"
+              : column.type === "number"
+                ? value
+                : formatStatisticValue(row, column);
+            const cellStyle =
+              column.type === "number" && !isEmpty
+                ? `mso-number-format:'${column.key === "n" ? "#,##0" : "0.00"}'; text-align:right;`
+                : "mso-number-format:'\\@';";
+
+            return `<td style="${cellStyle}">${escapeHtml(cellValue)}</td>`;
+          })
+          .join("")}</tr>`,
+    )
+    .join("");
+
+  const html = `
+    <html>
+      <head>
+        <meta charset="UTF-8" />
+        <style>
+          table { border-collapse: collapse; font-family: 'Malgun Gothic', Arial, sans-serif; font-size: 11pt; }
+          th { background: #eef2f7; color: #151b2f; font-weight: 700; }
+          th, td { border: 1px solid #d5dce8; padding: 6px 8px; text-align: left; white-space: nowrap; }
+          caption { padding: 8px 0 10px; font-weight: 700; text-align: left; }
+          .meta td { background: #f9fafc; color: #556174; font-weight: 700; }
+        </style>
+      </head>
+      <body>
+        <table>
+          <caption>검체별 기본통계</caption>
+          <tbody class="meta">
+            <tr><td>통계 범위</td><td>${escapeHtml(scopeLabel)}</td></tr>
+            <tr><td>정렬</td><td>${escapeHtml(sortText)}</td></tr>
+            <tr><td>다운로드 row 수</td><td>${rows.length.toLocaleString()}</td></tr>
+          </tbody>
+        </table>
+        <br />
+        <table>
           <thead><tr>${headerCells}</tr></thead>
           <tbody>${bodyRows}</tbody>
         </table>
@@ -1868,6 +1987,7 @@ function StatisticsDetail() {
   const [appliedComparisons, setAppliedComparisons] = useState(
     createDefaultStatisticsFilters,
   );
+  const [sortConfig, setSortConfig] = useState({ key: "", direction: "asc" });
   const rows = getStatisticsRows();
   const scopeCounts = Object.fromEntries(
     statisticsScopeOptions.map((option) => [
@@ -1882,6 +2002,11 @@ function StatisticsDetail() {
   const filteredRows = scopedRows.filter((row) =>
     rowMatchesStatisticsFilters(row, filters, appliedComparisons),
   );
+  const sortedRows = sortStatisticsRows(filteredRows, sortConfig);
+  const hasActiveSort = Boolean(sortConfig.key);
+  const activeScopeLabel =
+    statisticsScopeOptions.find((option) => option.value === statisticsScope)
+      ?.label ?? "전체";
   const hasActiveFilters =
     statisticsScope !== "all" ||
     statisticsColumns.some((column) => {
@@ -1928,6 +2053,23 @@ function StatisticsDetail() {
     );
   };
 
+  const updateSort = (columnKey) => {
+    setSortConfig((currentSort) => {
+      if (currentSort.key !== columnKey) {
+        return { key: columnKey, direction: "asc" };
+      }
+
+      return {
+        key: columnKey,
+        direction: currentSort.direction === "asc" ? "desc" : "asc",
+      };
+    });
+  };
+
+  const resetSort = () => {
+    setSortConfig({ key: "", direction: "asc" });
+  };
+
   const resetFilters = () => {
     setStatisticsScope("all");
     setFilters(createDefaultStatisticsFilters());
@@ -1967,6 +2109,22 @@ function StatisticsDetail() {
             >
               필터 초기화
             </button>
+            <button type="button" disabled={!hasActiveSort} onClick={resetSort}>
+              정렬 초기화
+            </button>
+            <button
+              type="button"
+              disabled={sortedRows.length === 0}
+              onClick={() =>
+                downloadStatisticsExcel({
+                  rows: sortedRows,
+                  scopeLabel: activeScopeLabel,
+                  sortConfig,
+                })
+              }
+            >
+              엑셀 다운로드
+            </button>
           </div>
         </div>
 
@@ -1988,9 +2146,37 @@ function StatisticsDetail() {
           <table className="statistics-table">
             <thead>
               <tr>
-                {statisticsColumns.map((column) => (
-                  <th key={column.key}>{column.label}</th>
-                ))}
+                {statisticsColumns.map((column) => {
+                  const isSorted = sortConfig.key === column.key;
+                  const sortLabel = isSorted
+                    ? sortConfig.direction === "asc"
+                      ? "오름차순"
+                      : "내림차순"
+                    : "정렬 없음";
+
+                  return (
+                    <th
+                      className={isSorted ? "is-sorted" : undefined}
+                      key={column.key}
+                    >
+                      <button
+                        type="button"
+                        className="statistics-sort-button"
+                        aria-label={`${column.label} ${sortLabel}. 클릭하여 정렬`}
+                        onClick={() => updateSort(column.key)}
+                      >
+                        <span>{column.label}</span>
+                        <i aria-hidden="true">
+                          {isSorted
+                            ? sortConfig.direction === "asc"
+                              ? "▲"
+                              : "▼"
+                            : "↕"}
+                        </i>
+                      </button>
+                    </th>
+                  );
+                })}
               </tr>
               <tr className="statistics-filter-row">
                 {statisticsColumns.map((column) => {
@@ -2052,8 +2238,8 @@ function StatisticsDetail() {
               </tr>
             </thead>
             <tbody>
-              {filteredRows.length > 0 ? (
-                filteredRows.map((row) => (
+              {sortedRows.length > 0 ? (
+                sortedRows.map((row) => (
                   <tr key={row.id}>
                     {statisticsColumns.map((column) => (
                       <td

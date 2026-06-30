@@ -642,6 +642,47 @@ button {
   font-weight: 900;
 }
 
+.statistics-table thead tr:first-child th.is-sorted {
+  background: #f9e8f1;
+  color: var(--magenta);
+}
+
+.statistics-sort-button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.statistics-sort-button span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.statistics-sort-button i {
+  flex: 0 0 auto;
+  color: #8793a5;
+  font-style: normal;
+  font-size: 10px;
+}
+
+.statistics-table thead tr:first-child th.is-sorted .statistics-sort-button i {
+  color: var(--magenta);
+}
+
+.statistics-sort-button:hover span {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .statistics-filter-row th {
   position: sticky;
   top: 34px;
