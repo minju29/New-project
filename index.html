@@ -4,6 +4,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>일반화학검사 대시보드</title>
+    <script>
+      if (
+        location.hostname.endsWith("github.io") &&
+        !location.pathname.includes("/docs/")
+      ) {
+        location.replace(new URL("./docs/", location.href));
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
