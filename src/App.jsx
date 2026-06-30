@@ -699,6 +699,11 @@ function getInstitutionRowsForMakers(makers) {
 }
 
 function getTrendData(selection) {
+  const trendPeriods = trendTableData.allPeriods.map((period) => ({
+    label: period.key,
+    year: period.year,
+    round: period.round,
+  }));
   const selectedRate =
     unacceptableRateData.tests[selection.testIndex].values[
       selection.specimenIndex
@@ -709,18 +714,15 @@ function getTrendData(selection) {
     (selection.testIndex % 6) * 3 +
     selection.specimenIndex * 4;
 
-  return Array.from({ length: 24 }, (_, index) => {
-    const date = new Date(2024, 6 + index, 1);
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const shortYear = String(date.getFullYear()).slice(2);
+  return trendPeriods.map((period, index) => {
     const wave = Math.sin((index + selection.testIndex) * 0.85) * 9;
-    const seasonal = index % 6 === 2 ? 10 : index % 6 === 5 ? -6 : 0;
-    const drift = Math.round(index * 0.9);
+    const seasonal = index === 2 ? 10 : index === 4 ? -6 : 0;
+    const drift = Math.round(index * 1.4);
 
     return {
-      label: `${shortYear}.${month}`,
-      year: date.getFullYear(),
-      month: date.getMonth() + 1,
+      label: period.label,
+      year: period.year,
+      round: period.round,
       value: Math.max(12, Math.round(base + wave + seasonal + drift)),
     };
   });
@@ -1097,23 +1099,36 @@ function TrendLineChart({ selection }) {
     const trendData = getTrendData(selection);
     const maxValue = Math.max(...trendData.map((item) => item.value));
     const chart = new Chart(canvasRef.current, {
-      type: "line",
+      type: "bar",
       data: {
         labels: trendData.map((item) => item.label),
         datasets: [
           {
+            type: "bar",
+            label: "기관 수",
+            data: trendData.map((item) => item.value),
+            backgroundColor: "rgba(8, 105, 244, 0.24)",
+            borderColor: "#0869f4",
+            borderWidth: 1,
+            borderRadius: 999,
+            barThickness: 4,
+            categoryPercentage: 0.7,
+            order: 2,
+          },
+          {
+            type: "line",
             label: `${selectedTest.name} / ${selectedSpecimen.key}`,
             data: trendData.map((item) => item.value),
+            showLine: false,
             borderColor: "#0869f4",
-            backgroundColor: "rgba(8, 105, 244, 0.12)",
-            borderWidth: 2,
+            backgroundColor: "#fff",
+            borderWidth: 0,
             pointBackgroundColor: "#fff",
             pointBorderColor: "#0869f4",
-            pointBorderWidth: 2,
-            pointRadius: 3.5,
-            pointHoverRadius: 5,
-            tension: 0.28,
-            fill: true,
+            pointBorderWidth: 3,
+            pointRadius: 6,
+            pointHoverRadius: 8,
+            order: 1,
           },
         ],
       },
@@ -1130,10 +1145,13 @@ function TrendLineChart({ selection }) {
             display: false,
           },
           tooltip: {
+            filter(item) {
+              return item.dataset.type === "line";
+            },
             callbacks: {
               title(items) {
                 const item = trendData[items[0].dataIndex];
-                return `${item.year}년 ${item.month}월`;
+                return `${item.label} 회차`;
               },
               label(item) {
                 return `기관 수: ${item.parsed.y}`;
@@ -1152,8 +1170,8 @@ function TrendLineChart({ selection }) {
                 size: 10,
               },
               maxRotation: 0,
-              autoSkip: true,
-              maxTicksLimit: 12,
+              autoSkip: false,
+              maxTicksLimit: trendData.length,
             },
           },
           y: {
@@ -1198,7 +1216,7 @@ function TrendLineChart({ selection }) {
       <div className="trend-canvas">
         <canvas
           ref={canvasRef}
-          aria-label="선택한 검사 검체의 2년간 Unacceptable 기관 수 추이"
+          aria-label="선택한 검사 검체의 회차별 Unacceptable 기관 수 롤리팝 차트"
         />
       </div>
     </div>
@@ -2474,7 +2492,7 @@ function App() {
                 <div className="panel-head">
                   <div>
                     <h3>선택한 검사(검체) Unacceptable 기관 수 추이</h3>
-                    <p>최근 2년간 월별 기관 수 추이</p>
+                    <p>회차별 기관 수 롤리팝 차트</p>
                   </div>
                   <span>단위: 기관</span>
                 </div>
