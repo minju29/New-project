@@ -2585,13 +2585,73 @@ function TrendAnalysis() {
   );
 }
 
+function StatisticsConfirmModal({ dialogType, onConfirm, onCancel, onClose }) {
+  const isConfirmDialog = dialogType === "confirm";
+  const message =
+    dialogType === "success"
+      ? "통계확인이 완료되었습니다"
+      : dialogType === "cancel"
+        ? "취소되었습니다"
+        : "정말로 통계확인하시겠습니까?";
+
+  return (
+    <div className="modal-backdrop" role="presentation">
+      <div
+        className="statistics-confirm-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="statistics-confirm-title"
+      >
+        <h2 id="statistics-confirm-title">통계확인</h2>
+        <p>{message}</p>
+        <div className="statistics-confirm-actions">
+          {isConfirmDialog ? (
+            <>
+              <button type="button" className="primary" onClick={onConfirm}>
+                예
+              </button>
+              <button type="button" onClick={onCancel}>
+                아니오
+              </button>
+            </>
+          ) : (
+            <button type="button" className="primary" onClick={onClose}>
+              확인
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const [selection, setSelection] = useState({
     testIndex: 0,
     specimenIndex: 0,
   });
   const [activeTab, setActiveTab] = useState("overview");
+  const [isStatisticsConfirmed, setIsStatisticsConfirmed] = useState(false);
+  const [statisticsDialog, setStatisticsDialog] = useState(null);
   const activeTabLabel = reportTabs.find((tab) => tab.id === activeTab)?.label;
+
+  const openStatisticsConfirm = () => {
+    if (isStatisticsConfirmed) return;
+    setStatisticsDialog("confirm");
+  };
+
+  const confirmStatistics = () => {
+    setIsStatisticsConfirmed(true);
+    setStatisticsDialog("success");
+  };
+
+  const cancelStatistics = () => {
+    setStatisticsDialog("cancel");
+  };
+
+  const resetStatisticsConfirm = () => {
+    setIsStatisticsConfirmed(false);
+  };
 
   return (
     <div className="app-shell">
@@ -2621,7 +2681,22 @@ function App() {
           </div>
           <span>남은 기간</span>
           <strong className="danger">1일</strong>
-          <button type="button">통계확인 완료</button>
+          <button
+            type="button"
+            disabled={isStatisticsConfirmed}
+            onClick={openStatisticsConfirm}
+          >
+            통계확인 완료
+          </button>
+          {isStatisticsConfirmed && (
+            <button
+              type="button"
+              className="secondary"
+              onClick={resetStatisticsConfirm}
+            >
+              통계취소
+            </button>
+          )}
         </div>
       </section>
 
@@ -2702,6 +2777,15 @@ function App() {
           </section>
         )}
       </main>
+
+      {statisticsDialog && (
+        <StatisticsConfirmModal
+          dialogType={statisticsDialog}
+          onConfirm={confirmStatistics}
+          onCancel={cancelStatistics}
+          onClose={() => setStatisticsDialog(null)}
+        />
+      )}
     </div>
   );
 }
