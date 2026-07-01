@@ -11,6 +11,17 @@ npm.cmd run dev
 
 브라우저에서 `http://127.0.0.1:5173/`로 확인할 수 있습니다.
 
+## 페이지 URL
+
+별도 페이지는 해시 URL로 이동합니다. 대시보드 안의 탭은 URL을 바꾸지 않고 화면 안에서만 전환됩니다.
+
+```text
+http://127.0.0.1:5173/
+http://127.0.0.1:5173/#/new-page
+```
+
+새 페이지를 추가할 때는 `src/App.jsx`의 `pageRoutes`에 URL path를 추가하고, `App` 컴포넌트에서 해당 page id에 맞는 페이지 컴포넌트를 렌더링합니다.
+
 ## GitHub Pages 배포
 
 이 프로젝트는 GitHub Pages의 `main /docs` 배포 방식에 맞춰져 있습니다.

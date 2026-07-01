@@ -1,0 +1,383 @@
+﻿회차년도,회차,검체명,검사명,제조사,Unacceptable rate
+2025,01,CU-25-01,-pH,Abbott,0.59
+2025,01,CU-25-01,-pH,Arkray Inc,0
+2025,01,CU-25-01,-pH,Beckman Coulter Inc.,0
+2025,01,CU-25-01,-pH,Eiken,0
+2025,01,CU-25-01,-pH,Others,11.36
+2025,01,CU-25-01,-pH,Roche,0
+2025,01,CU-25-01,-pH,Siemens Healthineers,0
+2025,01,CU-25-01,-pH,Sysmex,0
+2025,01,CU-25-01,-pH,"URIT Medical Electronic Co., Ltd.",33.33
+2025,01,CU-25-01,-pH,YD diagnostics,0.14
+2025,01,CU-25-01,-pH,㈜디에프아이,1.22
+2025,01,CU-25-01,-pH,청도제약,0
+2025,01,CU-25-02,-pH,Abbott,1.78
+2025,01,CU-25-02,-pH,Arkray Inc,0
+2025,01,CU-25-02,-pH,Beckman Coulter Inc.,0
+2025,01,CU-25-02,-pH,Eiken,8.33
+2025,01,CU-25-02,-pH,Others,4.55
+2025,01,CU-25-02,-pH,Roche,0
+2025,01,CU-25-02,-pH,Siemens Healthineers,0
+2025,01,CU-25-02,-pH,Sysmex,0
+2025,01,CU-25-02,-pH,"URIT Medical Electronic Co., Ltd.",0
+2025,01,CU-25-02,-pH,YD diagnostics,4.39
+2025,01,CU-25-02,-pH,㈜디에프아이,1.22
+2025,01,CU-25-02,-pH,청도제약,0
+2025,01,CU-25-03,-pH,Abbott,0.4
+2025,01,CU-25-03,-pH,Arkray Inc,0
+2025,01,CU-25-03,-pH,Beckman Coulter Inc.,0
+2025,01,CU-25-03,-pH,Eiken,0
+2025,01,CU-25-03,-pH,Others,0
+2025,01,CU-25-03,-pH,Roche,0.56
+2025,01,CU-25-03,-pH,Siemens Healthineers,1.68
+2025,01,CU-25-03,-pH,Sysmex,0
+2025,01,CU-25-03,-pH,"URIT Medical Electronic Co., Ltd.",0
+2025,01,CU-25-03,-pH,YD diagnostics,1.42
+2025,01,CU-25-03,-pH,㈜디에프아이,0.61
+2025,01,CU-25-03,-pH,청도제약,0
+2025,01,CU-25-01,-Protein,Abbott,0.2
+2025,01,CU-25-01,-Protein,Arkray Inc,0
+2025,01,CU-25-01,-Protein,Beckman Coulter Inc.,0
+2025,01,CU-25-01,-Protein,Eiken,0
+2025,01,CU-25-01,-Protein,Others,2.13
+2025,01,CU-25-01,-Protein,Roche,4.47
+2025,01,CU-25-01,-Protein,Siemens Healthineers,0
+2025,01,CU-25-01,-Protein,Sysmex,0
+2025,01,CU-25-01,-Protein,"URIT Medical Electronic Co., Ltd.",0
+2025,01,CU-25-01,-Protein,YD diagnostics,0.28
+2025,01,CU-25-01,-Protein,㈜디에프아이,1.2
+2025,01,CU-25-01,-Protein,청도제약,0
+2025,01,CU-25-02,-Protein,Abbott,0.39
+2025,01,CU-25-02,-Protein,Arkray Inc,0
+2025,01,CU-25-02,-Protein,Beckman Coulter Inc.,0
+2025,01,CU-25-02,-Protein,Eiken,0
+2025,01,CU-25-02,-Protein,Others,2.13
+2025,01,CU-25-02,-Protein,Roche,0
+2025,01,CU-25-02,-Protein,Siemens Healthineers,0
+2025,01,CU-25-02,-Protein,Sysmex,0
+2025,01,CU-25-02,-Protein,"URIT Medical Electronic Co., Ltd.",0
+2025,01,CU-25-02,-Protein,YD diagnostics,0
+2025,01,CU-25-02,-Protein,㈜디에프아이,0
+2025,01,CU-25-02,-Protein,청도제약,0
+2025,01,CU-25-03,-Protein,Abbott,4.73
+2025,01,CU-25-03,-Protein,Arkray Inc,0
+2025,01,CU-25-03,-Protein,Beckman Coulter Inc.,50
+2025,01,CU-25-03,-Protein,Eiken,0
+2025,01,CU-25-03,-Protein,Others,29.79
+2025,01,CU-25-03,-Protein,Roche,0
+2025,01,CU-25-03,-Protein,Siemens Healthineers,0.84
+2025,01,CU-25-03,-Protein,Sysmex,0
+2025,01,CU-25-03,-Protein,"URIT Medical Electronic Co., Ltd.",0
+2025,01,CU-25-03,-Protein,YD diagnostics,1.54
+2025,01,CU-25-03,-Protein,㈜디에프아이,8.98
+2025,01,CU-25-03,-Protein,청도제약,100
+2025,01,CU-25-01,-Glucose,Abbott,0.4
+2025,01,CU-25-01,-Glucose,Arkray Inc,0
+2025,01,CU-25-01,-Glucose,Beckman Coulter Inc.,0
+2025,01,CU-25-01,-Glucose,Eiken,0
+2025,01,CU-25-01,-Glucose,Others,0
+2025,01,CU-25-01,-Glucose,Roche,0.56
+2025,01,CU-25-01,-Glucose,Siemens Healthineers,0
+2025,01,CU-25-01,-Glucose,Sysmex,0
+2025,01,CU-25-01,-Glucose,"URIT Medical Electronic Co., Ltd.",0
+2025,01,CU-25-01,-Glucose,YD diagnostics,0.28
+2025,01,CU-25-01,-Glucose,㈜디에프아이,0.61
+2025,01,CU-25-01,-Glucose,청도제약,0
+2025,01,CU-25-02,-Glucose,Abbott,0.4
+2025,01,CU-25-02,-Glucose,Arkray Inc,0
+2025,01,CU-25-02,-Glucose,Beckman Coulter Inc.,0
+2025,01,CU-25-02,-Glucose,Eiken,0
+2025,01,CU-25-02,-Glucose,Others,2.22
+2025,01,CU-25-02,-Glucose,Roche,1.12
+2025,01,CU-25-02,-Glucose,Siemens Healthineers,0.84
+2025,01,CU-25-02,-Glucose,Sysmex,0
+2025,01,CU-25-02,-Glucose,"URIT Medical Electronic Co., Ltd.",0
+2025,01,CU-25-02,-Glucose,YD diagnostics,0.28
+2025,01,CU-25-02,-Glucose,㈜디에프아이,0.61
+2025,01,CU-25-02,-Glucose,청도제약,0
+2025,01,CU-25-03,-Glucose,Abbott,1.39
+2025,01,CU-25-03,-Glucose,Arkray Inc,0
+2025,01,CU-25-03,-Glucose,Beckman Coulter Inc.,0
+2025,01,CU-25-03,-Glucose,Eiken,0
+2025,01,CU-25-03,-Glucose,Others,2.22
+2025,01,CU-25-03,-Glucose,Roche,0
+2025,01,CU-25-03,-Glucose,Siemens Healthineers,1.68
+2025,01,CU-25-03,-Glucose,Sysmex,0
+2025,01,CU-25-03,-Glucose,"URIT Medical Electronic Co., Ltd.",0
+2025,01,CU-25-03,-Glucose,YD diagnostics,3.81
+2025,01,CU-25-03,-Glucose,㈜디에프아이,1.83
+2025,01,CU-25-03,-Glucose,청도제약,0
+2025,01,CU-25-01,-Ketone,,0
+2025,01,CU-25-01,-Ketone,Abbott,0
+2025,01,CU-25-01,-Ketone,Arkray Inc,0
+2025,01,CU-25-01,-Ketone,Beckman Coulter Inc.,0
+2025,01,CU-25-01,-Ketone,Eiken,0
+2025,01,CU-25-01,-Ketone,Others,0
+2025,01,CU-25-01,-Ketone,Roche,0
+2025,01,CU-25-01,-Ketone,Siemens Healthineers,0
+2025,01,CU-25-01,-Ketone,Sysmex,0
+2025,01,CU-25-01,-Ketone,"URIT Medical Electronic Co., Ltd.",0
+2025,01,CU-25-01,-Ketone,YD diagnostics,0.15
+2025,01,CU-25-01,-Ketone,㈜디에프아이,0
+2025,01,CU-25-01,-Ketone,청도제약,0
+2025,01,CU-25-02,-Ketone,,0
+2025,01,CU-25-02,-Ketone,Abbott,0
+2025,01,CU-25-02,-Ketone,Arkray Inc,0
+2025,01,CU-25-02,-Ketone,Beckman Coulter Inc.,0
+2025,01,CU-25-02,-Ketone,Eiken,0
+2025,01,CU-25-02,-Ketone,Others,5
+2025,01,CU-25-02,-Ketone,Roche,0
+2025,01,CU-25-02,-Ketone,Siemens Healthineers,0
+2025,01,CU-25-02,-Ketone,Sysmex,0
+2025,01,CU-25-02,-Ketone,"URIT Medical Electronic Co., Ltd.",0
+2025,01,CU-25-02,-Ketone,YD diagnostics,0.29
+2025,01,CU-25-02,-Ketone,㈜디에프아이,0.62
+2025,01,CU-25-02,-Ketone,청도제약,0
+2025,01,CU-25-03,-Ketone,,0
+2025,01,CU-25-03,-Ketone,Abbott,3.68
+2025,01,CU-25-03,-Ketone,Arkray Inc,40
+2025,01,CU-25-03,-Ketone,Beckman Coulter Inc.,0
+2025,01,CU-25-03,-Ketone,Eiken,0
+2025,01,CU-25-03,-Ketone,Others,2.5
+2025,01,CU-25-03,-Ketone,Roche,0
+2025,01,CU-25-03,-Ketone,Siemens Healthineers,3.36
+2025,01,CU-25-03,-Ketone,Sysmex,0
+2025,01,CU-25-03,-Ketone,"URIT Medical Electronic Co., Ltd.",0
+2025,01,CU-25-03,-Ketone,YD diagnostics,5.99
+2025,01,CU-25-03,-Ketone,㈜디에프아이,2.48
+2025,01,CU-25-03,-Ketone,청도제약,0
+2025,01,CU-25-01,-Bilirubin,,0
+2025,01,CU-25-01,-Bilirubin,Abbott,0
+2025,01,CU-25-01,-Bilirubin,Arkray Inc,0
+2025,01,CU-25-01,-Bilirubin,Beckman Coulter Inc.,0
+2025,01,CU-25-01,-Bilirubin,Eiken,0
+2025,01,CU-25-01,-Bilirubin,Others,0
+2025,01,CU-25-01,-Bilirubin,Roche,0
+2025,01,CU-25-01,-Bilirubin,Siemens Healthineers,0
+2025,01,CU-25-01,-Bilirubin,Sysmex,0
+2025,01,CU-25-01,-Bilirubin,"URIT Medical Electronic Co., Ltd.",0
+2025,01,CU-25-01,-Bilirubin,YD diagnostics,0.15
+2025,01,CU-25-01,-Bilirubin,㈜디에프아이,0
+2025,01,CU-25-01,-Bilirubin,청도제약,0
+2025,01,CU-25-02,-Bilirubin,,0
+2025,01,CU-25-02,-Bilirubin,Abbott,0.2
+2025,01,CU-25-02,-Bilirubin,Arkray Inc,0
+2025,01,CU-25-02,-Bilirubin,Beckman Coulter Inc.,0
+2025,01,CU-25-02,-Bilirubin,Eiken,0
+2025,01,CU-25-02,-Bilirubin,Others,2.5
+2025,01,CU-25-02,-Bilirubin,Roche,0.56
+2025,01,CU-25-02,-Bilirubin,Siemens Healthineers,0
+2025,01,CU-25-02,-Bilirubin,Sysmex,0.6
+2025,01,CU-25-02,-Bilirubin,"URIT Medical Electronic Co., Ltd.",0
+2025,01,CU-25-02,-Bilirubin,YD diagnostics,0.15
+2025,01,CU-25-02,-Bilirubin,㈜디에프아이,1.89
+2025,01,CU-25-02,-Bilirubin,청도제약,0
+2025,01,CU-25-03,-Bilirubin,,0
+2025,01,CU-25-03,-Bilirubin,Abbott,0
+2025,01,CU-25-03,-Bilirubin,Arkray Inc,0
+2025,01,CU-25-03,-Bilirubin,Beckman Coulter Inc.,0
+2025,01,CU-25-03,-Bilirubin,Eiken,0
+2025,01,CU-25-03,-Bilirubin,Others,2.5
+2025,01,CU-25-03,-Bilirubin,Roche,0
+2025,01,CU-25-03,-Bilirubin,Siemens Healthineers,0.84
+2025,01,CU-25-03,-Bilirubin,Sysmex,0
+2025,01,CU-25-03,-Bilirubin,"URIT Medical Electronic Co., Ltd.",0
+2025,01,CU-25-03,-Bilirubin,YD diagnostics,0.44
+2025,01,CU-25-03,-Bilirubin,㈜디에프아이,0.63
+2025,01,CU-25-03,-Bilirubin,청도제약,0
+2025,01,CU-25-01,-Blood,Abbott,1.19
+2025,01,CU-25-01,-Blood,Arkray Inc,0
+2025,01,CU-25-01,-Blood,Beckman Coulter Inc.,0
+2025,01,CU-25-01,-Blood,Eiken,0
+2025,01,CU-25-01,-Blood,Others,2.27
+2025,01,CU-25-01,-Blood,Roche,0
+2025,01,CU-25-01,-Blood,Siemens Healthineers,0
+2025,01,CU-25-01,-Blood,Sysmex,0
+2025,01,CU-25-01,-Blood,"URIT Medical Electronic Co., Ltd.",0
+2025,01,CU-25-01,-Blood,YD diagnostics,0.85
+2025,01,CU-25-01,-Blood,㈜디에프아이,0.61
+2025,01,CU-25-01,-Blood,청도제약,0
+2025,01,CU-25-02,-Blood,Abbott,0.99
+2025,01,CU-25-02,-Blood,Arkray Inc,0
+2025,01,CU-25-02,-Blood,Beckman Coulter Inc.,0
+2025,01,CU-25-02,-Blood,Eiken,0
+2025,01,CU-25-02,-Blood,Others,4.55
+2025,01,CU-25-02,-Blood,Roche,0.56
+2025,01,CU-25-02,-Blood,Siemens Healthineers,0
+2025,01,CU-25-02,-Blood,Sysmex,0.6
+2025,01,CU-25-02,-Blood,"URIT Medical Electronic Co., Ltd.",0
+2025,01,CU-25-02,-Blood,YD diagnostics,0.71
+2025,01,CU-25-02,-Blood,㈜디에프아이,2.44
+2025,01,CU-25-02,-Blood,청도제약,0
+2025,01,CU-25-03,-Blood,Abbott,0.2
+2025,01,CU-25-03,-Blood,Arkray Inc,0
+2025,01,CU-25-03,-Blood,Beckman Coulter Inc.,0
+2025,01,CU-25-03,-Blood,Eiken,0
+2025,01,CU-25-03,-Blood,Others,2.27
+2025,01,CU-25-03,-Blood,Roche,0
+2025,01,CU-25-03,-Blood,Siemens Healthineers,0
+2025,01,CU-25-03,-Blood,Sysmex,0
+2025,01,CU-25-03,-Blood,"URIT Medical Electronic Co., Ltd.",0
+2025,01,CU-25-03,-Blood,YD diagnostics,0.42
+2025,01,CU-25-03,-Blood,㈜디에프아이,0.61
+2025,01,CU-25-03,-Blood,청도제약,0
+2025,01,CU-25-01,-Urobilinogen,,0
+2025,01,CU-25-01,-Urobilinogen,Abbott,0.2
+2025,01,CU-25-01,-Urobilinogen,Arkray Inc,0
+2025,01,CU-25-01,-Urobilinogen,Beckman Coulter Inc.,0
+2025,01,CU-25-01,-Urobilinogen,Eiken,0
+2025,01,CU-25-01,-Urobilinogen,Others,0
+2025,01,CU-25-01,-Urobilinogen,Roche,0
+2025,01,CU-25-01,-Urobilinogen,Siemens Healthineers,0.84
+2025,01,CU-25-01,-Urobilinogen,Sysmex,0
+2025,01,CU-25-01,-Urobilinogen,"URIT Medical Electronic Co., Ltd.",0
+2025,01,CU-25-01,-Urobilinogen,YD diagnostics,0.15
+2025,01,CU-25-01,-Urobilinogen,㈜디에프아이,0
+2025,01,CU-25-01,-Urobilinogen,청도제약,0
+2025,01,CU-25-02,-Urobilinogen,,0
+2025,01,CU-25-02,-Urobilinogen,Abbott,0.2
+2025,01,CU-25-02,-Urobilinogen,Arkray Inc,0
+2025,01,CU-25-02,-Urobilinogen,Beckman Coulter Inc.,0
+2025,01,CU-25-02,-Urobilinogen,Eiken,0
+2025,01,CU-25-02,-Urobilinogen,Others,2.5
+2025,01,CU-25-02,-Urobilinogen,Roche,0
+2025,01,CU-25-02,-Urobilinogen,Siemens Healthineers,0.84
+2025,01,CU-25-02,-Urobilinogen,Sysmex,0
+2025,01,CU-25-02,-Urobilinogen,"URIT Medical Electronic Co., Ltd.",0
+2025,01,CU-25-02,-Urobilinogen,YD diagnostics,0.15
+2025,01,CU-25-02,-Urobilinogen,㈜디에프아이,0
+2025,01,CU-25-02,-Urobilinogen,청도제약,0
+2025,01,CU-25-03,-Urobilinogen,,0
+2025,01,CU-25-03,-Urobilinogen,Abbott,0.82
+2025,01,CU-25-03,-Urobilinogen,Arkray Inc,80
+2025,01,CU-25-03,-Urobilinogen,Beckman Coulter Inc.,0
+2025,01,CU-25-03,-Urobilinogen,Eiken,0
+2025,01,CU-25-03,-Urobilinogen,Others,2.5
+2025,01,CU-25-03,-Urobilinogen,Roche,0
+2025,01,CU-25-03,-Urobilinogen,Siemens Healthineers,0
+2025,01,CU-25-03,-Urobilinogen,Sysmex,0
+2025,01,CU-25-03,-Urobilinogen,"URIT Medical Electronic Co., Ltd.",0
+2025,01,CU-25-03,-Urobilinogen,YD diagnostics,0.88
+2025,01,CU-25-03,-Urobilinogen,㈜디에프아이,1.24
+2025,01,CU-25-03,-Urobilinogen,청도제약,0
+2025,01,CU-25-01,-Nitrite,,0
+2025,01,CU-25-01,-Nitrite,Abbott,0
+2025,01,CU-25-01,-Nitrite,Arkray Inc,0
+2025,01,CU-25-01,-Nitrite,Beckman Coulter Inc.,0
+2025,01,CU-25-01,-Nitrite,Eiken,0
+2025,01,CU-25-01,-Nitrite,Others,0
+2025,01,CU-25-01,-Nitrite,Roche,0
+2025,01,CU-25-01,-Nitrite,Siemens Healthineers,0
+2025,01,CU-25-01,-Nitrite,Sysmex,0
+2025,01,CU-25-01,-Nitrite,"URIT Medical Electronic Co., Ltd.",0
+2025,01,CU-25-01,-Nitrite,YD diagnostics,0.3
+2025,01,CU-25-01,-Nitrite,㈜디에프아이,0
+2025,01,CU-25-01,-Nitrite,청도제약,0
+2025,01,CU-25-02,-Nitrite,,0
+2025,01,CU-25-02,-Nitrite,Abbott,0
+2025,01,CU-25-02,-Nitrite,Arkray Inc,0
+2025,01,CU-25-02,-Nitrite,Beckman Coulter Inc.,0
+2025,01,CU-25-02,-Nitrite,Eiken,0
+2025,01,CU-25-02,-Nitrite,Others,2.56
+2025,01,CU-25-02,-Nitrite,Roche,0.56
+2025,01,CU-25-02,-Nitrite,Siemens Healthineers,0
+2025,01,CU-25-02,-Nitrite,Sysmex,0
+2025,01,CU-25-02,-Nitrite,"URIT Medical Electronic Co., Ltd.",0
+2025,01,CU-25-02,-Nitrite,YD diagnostics,0.3
+2025,01,CU-25-02,-Nitrite,㈜디에프아이,0
+2025,01,CU-25-02,-Nitrite,청도제약,0
+2025,01,CU-25-03,-Nitrite,,0
+2025,01,CU-25-03,-Nitrite,Abbott,0.61
+2025,01,CU-25-03,-Nitrite,Arkray Inc,0
+2025,01,CU-25-03,-Nitrite,Beckman Coulter Inc.,0
+2025,01,CU-25-03,-Nitrite,Eiken,0
+2025,01,CU-25-03,-Nitrite,Others,2.56
+2025,01,CU-25-03,-Nitrite,Roche,0
+2025,01,CU-25-03,-Nitrite,Siemens Healthineers,0
+2025,01,CU-25-03,-Nitrite,Sysmex,0
+2025,01,CU-25-03,-Nitrite,"URIT Medical Electronic Co., Ltd.",0
+2025,01,CU-25-03,-Nitrite,YD diagnostics,0.91
+2025,01,CU-25-03,-Nitrite,㈜디에프아이,2.5
+2025,01,CU-25-03,-Nitrite,청도제약,0
+2025,01,CU-25-01,-Leukocyte,,0
+2025,01,CU-25-01,-Leukocyte,Abbott,0.82
+2025,01,CU-25-01,-Leukocyte,Arkray Inc,0
+2025,01,CU-25-01,-Leukocyte,Beckman Coulter Inc.,0
+2025,01,CU-25-01,-Leukocyte,Eiken,0
+2025,01,CU-25-01,-Leukocyte,Others,0
+2025,01,CU-25-01,-Leukocyte,Roche,0
+2025,01,CU-25-01,-Leukocyte,Siemens Healthineers,0.84
+2025,01,CU-25-01,-Leukocyte,Sysmex,0
+2025,01,CU-25-01,-Leukocyte,"URIT Medical Electronic Co., Ltd.",0
+2025,01,CU-25-01,-Leukocyte,YD diagnostics,0.15
+2025,01,CU-25-01,-Leukocyte,㈜디에프아이,1.88
+2025,01,CU-25-01,-Leukocyte,청도제약,0
+2025,01,CU-25-02,-Leukocyte,,0
+2025,01,CU-25-02,-Leukocyte,Abbott,0.62
+2025,01,CU-25-02,-Leukocyte,Arkray Inc,0
+2025,01,CU-25-02,-Leukocyte,Beckman Coulter Inc.,0
+2025,01,CU-25-02,-Leukocyte,Eiken,0
+2025,01,CU-25-02,-Leukocyte,Others,2.56
+2025,01,CU-25-02,-Leukocyte,Roche,0
+2025,01,CU-25-02,-Leukocyte,Siemens Healthineers,0
+2025,01,CU-25-02,-Leukocyte,Sysmex,0
+2025,01,CU-25-02,-Leukocyte,"URIT Medical Electronic Co., Ltd.",0
+2025,01,CU-25-02,-Leukocyte,YD diagnostics,0.31
+2025,01,CU-25-02,-Leukocyte,㈜디에프아이,1.25
+2025,01,CU-25-02,-Leukocyte,청도제약,0
+2025,01,CU-25-03,-Leukocyte,,0
+2025,01,CU-25-03,-Leukocyte,Abbott,9.03
+2025,01,CU-25-03,-Leukocyte,Arkray Inc,0
+2025,01,CU-25-03,-Leukocyte,Beckman Coulter Inc.,100
+2025,01,CU-25-03,-Leukocyte,Eiken,0
+2025,01,CU-25-03,-Leukocyte,Others,10.26
+2025,01,CU-25-03,-Leukocyte,Roche,0
+2025,01,CU-25-03,-Leukocyte,Siemens Healthineers,0
+2025,01,CU-25-03,-Leukocyte,Sysmex,0
+2025,01,CU-25-03,-Leukocyte,"URIT Medical Electronic Co., Ltd.",0
+2025,01,CU-25-03,-Leukocyte,YD diagnostics,1.39
+2025,01,CU-25-03,-Leukocyte,㈜디에프아이,7.5
+2025,01,CU-25-03,-Leukocyte,청도제약,0
+2025,01,CU-25-01,-Specific Gravity,,0
+2025,01,CU-25-01,-Specific Gravity,Abbott,0.41
+2025,01,CU-25-01,-Specific Gravity,Arkray Inc,0
+2025,01,CU-25-01,-Specific Gravity,Beckman Coulter Inc.,0
+2025,01,CU-25-01,-Specific Gravity,Eiken,0
+2025,01,CU-25-01,-Specific Gravity,Others,0
+2025,01,CU-25-01,-Specific Gravity,Roche,15.08
+2025,01,CU-25-01,-Specific Gravity,Siemens Healthineers,0.84
+2025,01,CU-25-01,-Specific Gravity,Sysmex,3.59
+2025,01,CU-25-01,-Specific Gravity,"URIT Medical Electronic Co., Ltd.",0
+2025,01,CU-25-01,-Specific Gravity,YD diagnostics,22.58
+2025,01,CU-25-01,-Specific Gravity,㈜디에프아이,0.63
+2025,01,CU-25-01,-Specific Gravity,청도제약,0
+2025,01,CU-25-02,-Specific Gravity,,0
+2025,01,CU-25-02,-Specific Gravity,Abbott,0
+2025,01,CU-25-02,-Specific Gravity,Arkray Inc,0
+2025,01,CU-25-02,-Specific Gravity,Beckman Coulter Inc.,0
+2025,01,CU-25-02,-Specific Gravity,Eiken,0
+2025,01,CU-25-02,-Specific Gravity,Others,0
+2025,01,CU-25-02,-Specific Gravity,Roche,0.56
+2025,01,CU-25-02,-Specific Gravity,Siemens Healthineers,12.61
+2025,01,CU-25-02,-Specific Gravity,Sysmex,5.39
+2025,01,CU-25-02,-Specific Gravity,"URIT Medical Electronic Co., Ltd.",0
+2025,01,CU-25-02,-Specific Gravity,YD diagnostics,0.61
+2025,01,CU-25-02,-Specific Gravity,㈜디에프아이,0.63
+2025,01,CU-25-02,-Specific Gravity,청도제약,0
+2025,01,CU-25-03,-Specific Gravity,,0
+2025,01,CU-25-03,-Specific Gravity,Abbott,1.66
+2025,01,CU-25-03,-Specific Gravity,Arkray Inc,0
+2025,01,CU-25-03,-Specific Gravity,Beckman Coulter Inc.,0
+2025,01,CU-25-03,-Specific Gravity,Eiken,0
+2025,01,CU-25-03,-Specific Gravity,Others,0
+2025,01,CU-25-03,-Specific Gravity,Roche,0.56
+2025,01,CU-25-03,-Specific Gravity,Siemens Healthineers,5.88
+2025,01,CU-25-03,-Specific Gravity,Sysmex,8.38
+2025,01,CU-25-03,-Specific Gravity,"URIT Medical Electronic Co., Ltd.",0
+2025,01,CU-25-03,-Specific Gravity,YD diagnostics,0
+2025,01,CU-25-03,-Specific Gravity,㈜디에프아이,0.63
+2025,01,CU-25-03,-Specific Gravity,청도제약,0
+2025,01,CUI-25-01,Urine sediment,,4.41
+2025,01,CUI-25-02,Urine sediment,,3.21
+2025,01,CUI-25-03,Urine sediment,,3.01
+2025,01,CUI-25-04,Urine sediment,,0

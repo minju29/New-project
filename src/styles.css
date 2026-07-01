@@ -321,6 +321,215 @@ button {
   font-weight: 700;
 }
 
+.urine-specimen-card > div {
+  min-width: 0;
+  flex: 1;
+}
+
+.urine-specimen-counts {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+}
+
+.urine-specimen-counts > div,
+.urine-specimen-counts button {
+  display: inline-grid;
+  grid-template-columns: auto auto auto;
+  align-items: baseline;
+  gap: 4px 7px;
+  min-width: 0;
+}
+
+.urine-specimen-counts span {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #25304a;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.urine-specimen-counts strong {
+  margin: 0;
+  color: #111827;
+  font-size: 27px;
+  line-height: 1;
+}
+
+.urine-specimen-counts em {
+  color: #233252;
+  font-size: 13px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.urine-specimen-counts button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--magenta);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.urine-specimen-counts button span,
+.urine-specimen-counts button strong,
+.urine-specimen-counts button em {
+  color: var(--magenta);
+}
+
+.urine-specimen-counts button:hover span {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.urine-specimen-counts button:focus-visible {
+  outline: 2px solid var(--magenta);
+  outline-offset: 4px;
+}
+
+.image-specimen-modal {
+  width: min(760px, 100%);
+  padding: 20px;
+  border: 1px solid #dce3ed;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.22);
+}
+
+.image-specimen-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.image-specimen-modal-head h2 {
+  margin: 0;
+  color: #151b2f;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.image-specimen-modal-head button {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: #f9fafc;
+  color: #25304a;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.image-specimen-modal-head button:hover {
+  border-color: #c6cedc;
+  background: #f3f5f8;
+}
+
+.image-specimen-modal img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #f6f8fb;
+}
+
+.urine-rate-panel {
+  margin-top: 8px;
+}
+
+.urine-rate-chart {
+  position: relative;
+  height: 360px;
+}
+
+.urine-rate-chart canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.urine-detail-empty {
+  min-height: 180px;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.institution-grid-row.urine-institution-grid-row {
+  min-width: 1120px;
+  grid-template-columns: 38px 96px minmax(150px, 1.1fr) 92px 128px 82px minmax(150px, 1.1fr) minmax(180px, 1.2fr) 82px 82px;
+}
+
+.institution-pagination.urine-institution-pagination {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.urine-institution-pagination > button {
+  flex: 0 0 auto;
+}
+
+.urine-page-buttons {
+  min-width: 0;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 2px 0 6px;
+}
+
+.urine-page-buttons::-webkit-scrollbar {
+  height: 8px;
+}
+
+.urine-page-buttons::-webkit-scrollbar-track {
+  background: #edf1f7;
+  border-radius: 999px;
+}
+
+.urine-page-buttons::-webkit-scrollbar-thumb {
+  background: #c5cedd;
+  border-radius: 999px;
+}
+
+.urine-page-buttons button {
+  flex: 0 0 auto;
+}
+
+.grid-cell-tooltip {
+  position: fixed;
+  z-index: 10000;
+  max-width: min(420px, calc(100vw - 32px));
+  padding: 8px 10px;
+  border: 1px solid #d9e1ed;
+  border-radius: 6px;
+  background: #111827;
+  color: #fff;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.22);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+  pointer-events: none;
+  transform: translate(-50%, -100%);
+  white-space: normal;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+.grid-cell-tooltip.is-below {
+  transform: translate(-50%, 0);
+}
+
 .content-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.36fr) minmax(440px, 0.97fr);
@@ -477,6 +686,10 @@ button {
   padding-top: 10px;
 }
 
+.unacc-specimen-grid.has-four {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .unacc-specimen-cell {
   min-width: 0;
   display: grid;
@@ -497,6 +710,14 @@ button {
 .unacc-specimen-cell b {
   color: #566176;
   font-size: 12px;
+}
+
+.unacc-specimen-count {
+  color: #f20f23;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1.2;
+  white-space: nowrap;
 }
 
 .unacc-count-button {
@@ -525,6 +746,11 @@ button {
   margin-top: 14px;
   padding-top: 14px;
   border-top: 1px solid var(--line);
+}
+
+.urine-unacc-card-scroll {
+  max-height: calc(100vh - 244px);
+  min-height: 338px;
 }
 
 .sdi-panel {
@@ -1286,12 +1512,18 @@ button {
   width: 250px;
   height: 250px;
   overflow: visible;
+  cursor: pointer;
 }
 
 .donut-box canvas {
   display: block;
   width: 100% !important;
   height: 100% !important;
+}
+
+.donut-box:focus-visible {
+  outline: 2px solid var(--magenta);
+  outline-offset: 4px;
 }
 
 .donut-center {
@@ -1313,6 +1545,14 @@ button {
   line-height: 1.45;
 }
 
+.donut-center {
+  pointer-events: none;
+}
+
+.donut-box:hover .donut-center {
+  color: var(--magenta);
+}
+
 .donut-center span {
   display: block;
   font-weight: 800;
@@ -1330,7 +1570,7 @@ button {
 .donut-tooltip {
   position: absolute;
   z-index: 5;
-  max-width: 230px;
+  max-width: 260px;
   min-width: 168px;
   padding: 9px 11px;
   color: #25304a;
@@ -1343,6 +1583,7 @@ button {
   opacity: 0;
   pointer-events: none;
   transition: opacity 100ms ease;
+  word-break: keep-all;
 }
 
 .donut-tooltip strong {
@@ -1451,6 +1692,16 @@ button {
   grid-template-columns: 38px 105px minmax(130px, 1.25fr) 70px 82px 82px minmax(105px, 1fr) minmax(118px, 1fr);
 }
 
+.institution-grid-row.has-answer-column {
+  min-width: 980px;
+  grid-template-columns: 38px 105px minmax(130px, 1.1fr) 78px minmax(120px, 0.95fr) 82px 82px minmax(105px, 1fr) minmax(130px, 1fr);
+}
+
+.institution-grid-row.sediment-result-grid {
+  min-width: 900px;
+  grid-template-columns: 38px 105px minmax(150px, 0.9fr) minmax(260px, 1.25fr) minmax(260px, 1.25fr);
+}
+
 .institution-grid-row + .institution-grid-row {
   border-top: 1px solid var(--line);
 }
@@ -1466,6 +1717,16 @@ button {
   white-space: nowrap;
 }
 
+.institution-grid-row.sediment-result-grid .institution-grid-cell-result,
+.institution-grid-row.sediment-result-grid .institution-grid-cell-answer {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+}
+
 .institution-grid-row span + span {
   border-left: 1px solid var(--line);
 }
@@ -1475,7 +1736,32 @@ button {
 }
 
 .institution-grid-header span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
   font-weight: 800;
+}
+
+.column-indicator {
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 50%;
+  background: #fff;
+  color: #6b7890;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.institution-grid-header span:hover .column-indicator,
+.institution-grid-header span:focus-visible .column-indicator {
+  border-color: var(--magenta);
+  color: var(--magenta);
 }
 
 .institution-pagination {
@@ -1607,6 +1893,16 @@ button {
   .summary-card,
   .panel {
     padding: 14px;
+  }
+
+  .urine-specimen-counts {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .image-specimen-modal {
+    padding: 16px;
   }
 
   .chart-legend {

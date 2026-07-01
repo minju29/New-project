@@ -38,12 +38,231 @@ const mockSummary = [
   { label: "검체 수", value: "3", unit: "개" },
 ];
 
+const urineSummary = [
+  { label: "참여기관 수", value: "1,922", unit: "기관" },
+  { label: "검사항목 수", value: "11", unit: "종목" },
+];
+
+const urineImageSpecimenPreview = `data:image/svg+xml;utf8,${encodeURIComponent(`
+  <svg xmlns="http://www.w3.org/2000/svg" width="720" height="460" viewBox="0 0 720 460">
+    <rect width="720" height="460" fill="#f6f8fb"/>
+    <rect x="52" y="42" width="616" height="376" rx="22" fill="#ffffff" stroke="#d6dee9" stroke-width="3"/>
+    <rect x="93" y="82" width="260" height="296" rx="15" fill="#f2f5f9" stroke="#d1dbe8" stroke-width="2"/>
+    <rect x="123" y="116" width="200" height="228" rx="9" fill="#fff7d6" stroke="#ead998" stroke-width="2"/>
+    <g opacity="0.9">
+      <rect x="145" y="140" width="155" height="22" rx="4" fill="#f6da64"/>
+      <rect x="145" y="174" width="155" height="22" rx="4" fill="#f1bd50"/>
+      <rect x="145" y="208" width="155" height="22" rx="4" fill="#e9925b"/>
+      <rect x="145" y="242" width="155" height="22" rx="4" fill="#d7656d"/>
+      <rect x="145" y="276" width="155" height="22" rx="4" fill="#9a5fa6"/>
+      <rect x="145" y="310" width="155" height="22" rx="4" fill="#5676b9"/>
+    </g>
+    <rect x="394" y="94" width="218" height="54" rx="10" fill="#eef2f7"/>
+    <rect x="394" y="176" width="218" height="54" rx="10" fill="#fff2f6"/>
+    <rect x="394" y="258" width="218" height="54" rx="10" fill="#eef8f0"/>
+    <circle cx="419" cy="121" r="9" fill="#0869f4"/>
+    <circle cx="419" cy="203" r="9" fill="#a00056"/>
+    <circle cx="419" cy="285" r="9" fill="#11a940"/>
+    <rect x="442" y="112" width="128" height="10" rx="5" fill="#718096"/>
+    <rect x="442" y="130" width="92" height="8" rx="4" fill="#a6b1c2"/>
+    <rect x="442" y="194" width="132" height="10" rx="5" fill="#718096"/>
+    <rect x="442" y="212" width="104" height="8" rx="4" fill="#a6b1c2"/>
+    <rect x="442" y="276" width="118" height="10" rx="5" fill="#718096"/>
+    <rect x="442" y="294" width="96" height="8" rx="4" fill="#a6b1c2"/>
+  </svg>
+`)}`;
+
+const urineUnacceptableRateData = {
+  specimens: [
+    { key: "CU-25-01", color: "#0869f4" },
+    { key: "CU-25-02", color: "#ff7a00" },
+    { key: "CU-25-03", color: "#25a636" },
+    { key: "CUI-25-01", color: "#a00056" },
+    { key: "CUI-25-02", color: "#7954dd" },
+    { key: "CUI-25-03", color: "#0894b5" },
+    { key: "CUI-25-04", color: "#f59e0b" },
+  ],
+  tests: [
+    { name: "pH", values: [0.63, 2.36, 0.84, null, null, null, null] },
+    { name: "Protein", values: [0.73, 0.16, 3.48, null, null, null, null] },
+    { name: "Glucose", values: [0.31, 0.47, 2.09, null, null, null, null] },
+    { name: "Ketone", values: [0.05, 0.27, 3.76, null, null, null, null] },
+    { name: "Bilirubin", values: [0.05, 0.43, 0.32, null, null, null, null] },
+    { name: "Blood", values: [0.73, 0.94, 0.31, null, null, null, null] },
+    { name: "Urobilinogen", values: [0.16, 0.21, 0.91, null, null, null, null] },
+    { name: "Nitrite", values: [0.11, 0.22, 0.76, null, null, null, null] },
+    { name: "Leukocyte", values: [0.49, 0.44, 3.9, null, null, null, null] },
+    {
+      name: "Specific Gravity",
+      values: [10.12, 1.65, 1.71, null, null, null, null],
+    },
+    {
+      name: "Urine sediment",
+      values: [null, null, null, 4.41, 3.21, 3.01, 0],
+    },
+  ],
+};
+
+const urineMakerColors = [
+  "#0869f4",
+  "#ff7a00",
+  "#25a636",
+  "#a00056",
+  "#7954dd",
+  "#0894b5",
+  "#db2877",
+  "#f59e0b",
+  "#51ad3f",
+  "#f97316",
+  "#4b5563",
+  "#14b8a6",
+];
+
 const reportTabs = [
   { id: "overview", label: "종합 현황" },
   { id: "nonconformance", label: "부적합 분석" },
-  { id: "statistics", label: "통계상세" },
+  { id: "statistics-quantitative", label: "통계상세(정량)" },
+  { id: "statistics-qualitative", label: "통계상세(정성)" },
   { id: "trend", label: "추이분석" },
 ];
+
+const pageRoutes = [
+  { id: "dashboard", path: "dashboard" },
+  { id: "new-page", path: "new-page" },
+];
+
+const defaultPageId = pageRoutes[0].id;
+
+function getPageIdFromHash() {
+  if (typeof window === "undefined") return defaultPageId;
+
+  const rawPath = window.location.hash
+    .replace(/^#\/?/, "")
+    .split(/[/?]/)[0];
+  const route = pageRoutes.find((pageRoute) => pageRoute.path === rawPath);
+
+  return route?.id ?? defaultPageId;
+}
+
+function getDataUrl(fileName) {
+  return new URL(`data/${fileName}`, window.location.href).toString();
+}
+
+function parseCsv(text) {
+  const rows = [];
+  let row = [];
+  let cell = "";
+  let inQuotes = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    const nextChar = text[index + 1];
+
+    if (char === '"' && inQuotes && nextChar === '"') {
+      cell += '"';
+      index += 1;
+    } else if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if (char === "," && !inQuotes) {
+      row.push(cell);
+      cell = "";
+    } else if ((char === "\n" || char === "\r") && !inQuotes) {
+      if (char === "\r" && nextChar === "\n") index += 1;
+      row.push(cell);
+      if (row.some((value) => value !== "")) rows.push(row);
+      row = [];
+      cell = "";
+    } else {
+      cell += char;
+    }
+  }
+
+  if (cell || row.length) {
+    row.push(cell);
+    if (row.some((value) => value !== "")) rows.push(row);
+  }
+
+  const headers = rows[0]?.map((header) => header.replace(/^\uFEFF/, "").trim());
+  if (!headers) return [];
+
+  return rows.slice(1).map((values) =>
+    Object.fromEntries(
+      headers.map((header, index) => [header, values[index]?.trim() ?? ""]),
+    ),
+  );
+}
+
+function getUrineTestKey(test) {
+  return test.name === "Urine sediment" ? test.name : `-${test.name}`;
+}
+
+function getUrineSpecimenOrder(specimenKey) {
+  const orderText = specimenKey.split("-").at(-1);
+  const order = Number(orderText);
+
+  return Number.isFinite(order) ? order : null;
+}
+
+function formatUrineCell(value) {
+  if (value === undefined || value === null || value === "[NULL]") return "";
+  return value;
+}
+
+function downloadUrineInstitutionCsv({ selectedTest, selectedSpecimen, rows }) {
+  const headers = [
+    "No",
+    "기관코드",
+    "기관명",
+    "검체명",
+    "검사명",
+    "결과",
+    "제조사명",
+    "정답",
+    "기준분류SDI",
+    "세부SDI",
+  ];
+  const csvRows = [
+    headers,
+    ...rows.map((row, index) => [
+      index + 1,
+      row["기관코드"],
+      row["기관명"],
+      row["검체명"],
+      row["검사명"],
+      row["rslt"],
+      row["제조사명"],
+      row["정답"],
+      row["기준SDI"],
+      row["세부SDI"],
+    ]),
+  ];
+  const csv = csvRows
+    .map((row) =>
+      row
+        .map((value) => {
+          const cell = formatUrineCell(value);
+          return `"${String(cell).replace(/"/g, '""')}"`;
+        })
+        .join(","),
+    )
+    .join("\n");
+  const safeFileName =
+    `${selectedTest.name}_${selectedSpecimen.key}_Unacceptable기관목록`.replace(
+      /[\\/:*?"<>|]/g,
+      "_",
+    );
+  const blob = new Blob(["\ufeff", csv], {
+    type: "text/csv;charset=utf-8",
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${safeFileName}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
 
 const unacceptableRateData = {
   specimens: [
@@ -368,6 +587,38 @@ const nonconformanceInstitutionColumns = [
   { key: "instrument", label: "장비명" },
 ];
 
+const urineNonconformanceInstitutionColumns = [
+  { key: "no", label: "No" },
+  { key: "code", label: "기관코드" },
+  { key: "name", label: "기관명" },
+  { key: "result", label: "결과" },
+  { key: "answer", label: "정답" },
+  { key: "standardSdi", label: "기준SDI" },
+  { key: "detailSdi", label: "세부SDI" },
+  { key: "maker", label: "장비회사" },
+  { key: "instrument", label: "장비명" },
+];
+
+const urineSedimentNonconformanceInstitutionColumns = [
+  { key: "no", label: "No" },
+  { key: "code", label: "기관코드" },
+  { key: "name", label: "기관명" },
+  { key: "result", label: "결과" },
+  { key: "answer", label: "정답" },
+];
+
+const institutionColumnDescriptions = {
+  no: "목록의 순번입니다.",
+  code: "기관을 구분하는 고유 코드입니다.",
+  name: "Unacceptable 결과가 확인된 기관명입니다.",
+  result: "기관이 입력한 검사 결과입니다.",
+  answer: "해당 검체의 판정 기준 정답입니다.",
+  standardSdi: "기준분류 기준 SDI 값입니다.",
+  detailSdi: "세부분류 기준 SDI 값입니다.",
+  maker: "검사에 사용한 장비 회사입니다.",
+  instrument: "검사에 사용한 장비명입니다.",
+};
+
 const statisticsColumns = [
   { key: "testItem", label: "검사항목", type: "text" },
   { key: "specimenName", label: "검체명", type: "text" },
@@ -443,12 +694,42 @@ function formatPercent(value) {
   return `${Number(value).toFixed(2)}%`;
 }
 
+function parseStatisticNumber(value) {
+  if (value === null || value === undefined || value === "") return null;
+
+  const numericValue = Number(String(value).replace(/,/g, ""));
+
+  return Number.isFinite(numericValue) ? numericValue : null;
+}
+
+function getStatisticPrecision(row, column) {
+  const decimalPlaces = parseStatisticNumber(row.decimalPlaces);
+
+  if (
+    decimalPlaces !== null &&
+    ["mean", "median", "min", "max"].includes(column.key)
+  ) {
+    return decimalPlaces;
+  }
+
+  return 2;
+}
+
 function formatStatisticValue(row, column) {
   const value = row[column.key];
 
   if (value === null || value === undefined || value === "") return "-";
-  if (column.key === "n") return Number(value).toLocaleString();
-  if (column.type === "number") return Number(value).toFixed(2);
+  if (column.type === "number") {
+    const numericValue = parseStatisticNumber(value);
+
+    if (numericValue === null) return "-";
+    if (column.key === "n") return numericValue.toLocaleString();
+    if (row.decimalPlaces !== undefined && ["sd", "cv"].includes(column.key)) {
+      return String(value).replace(/,/g, "");
+    }
+
+    return numericValue.toFixed(getStatisticPrecision(row, column));
+  }
 
   return value;
 }
@@ -469,11 +750,10 @@ function createDefaultStatisticsFilters() {
 function compareNumberValue(cellValue, operator, compareValue) {
   if (cellValue === null || cellValue === undefined || cellValue === "")
     return false;
-  const cellNumber = Number(cellValue);
-  const targetNumber = Number(compareValue);
+  const cellNumber = parseStatisticNumber(cellValue);
+  const targetNumber = parseStatisticNumber(compareValue);
 
-  if (!Number.isFinite(cellNumber) || !Number.isFinite(targetNumber))
-    return false;
+  if (cellNumber === null || targetNumber === null) return false;
   if (operator === ">=") return cellNumber >= targetNumber;
   if (operator === ">") return cellNumber > targetNumber;
   if (operator === "=") return cellNumber === targetNumber;
@@ -569,13 +849,17 @@ function sortStatisticsRows(rows, sortConfig) {
       if (leftIsEmpty) return 1;
       if (rightIsEmpty) return -1;
 
-      const comparison =
-        column.type === "number"
-          ? Number(leftValue) - Number(rightValue)
-          : String(leftValue).localeCompare(String(rightValue), "ko", {
-              numeric: true,
-              sensitivity: "base",
-            });
+      let comparison;
+
+      if (column.type === "number") {
+        comparison =
+          parseStatisticNumber(leftValue) - parseStatisticNumber(rightValue);
+      } else {
+        comparison = String(leftValue).localeCompare(String(rightValue), "ko", {
+          numeric: true,
+          sensitivity: "base",
+        });
+      }
 
       if (comparison === 0) return left.index - right.index;
       return sortConfig.direction === "asc" ? comparison : -comparison;
@@ -685,11 +969,7 @@ function downloadStatisticsExcel({ rows, scopeLabel, sortConfig }) {
             const value = row[column.key];
             const isEmpty =
               value === null || value === undefined || value === "";
-            const cellValue = isEmpty
-              ? "-"
-              : column.type === "number"
-                ? value
-                : formatStatisticValue(row, column);
+            const cellValue = isEmpty ? "-" : formatStatisticValue(row, column);
             const cellStyle =
               column.type === "number" && !isEmpty
                 ? `mso-number-format:'${column.key === "n" ? "#,##0" : "0.00"}'; text-align:right;`
@@ -944,6 +1224,38 @@ function renderDoughnutTooltip(context, makers) {
   tooltipEl.innerHTML = `
     <strong>${escapeHtml(maker.name)}</strong>
     <span>${maker.count} 기관 (${formatPercent((maker.count / total) * 100)})</span>
+  `;
+  tooltipEl.style.opacity = "1";
+  tooltipEl.style.left = `${chart.canvas.offsetLeft + tooltip.caretX}px`;
+  tooltipEl.style.top = `${chart.canvas.offsetTop + tooltip.caretY}px`;
+  tooltipEl.style.transform = alignLeft
+    ? "translate(-100%, -50%)"
+    : "translate(12px, -50%)";
+}
+
+function renderUrineDoughnutTooltip(context, makers) {
+  const { chart, tooltip } = context;
+  const parent = chart.canvas.parentNode;
+  let tooltipEl = parent.querySelector(".donut-tooltip");
+
+  if (!tooltipEl) {
+    tooltipEl = document.createElement("div");
+    tooltipEl.className = "donut-tooltip";
+    parent.appendChild(tooltipEl);
+  }
+
+  if (tooltip.opacity === 0 || !tooltip.dataPoints?.length) {
+    tooltipEl.style.opacity = "0";
+    return;
+  }
+
+  const dataIndex = tooltip.dataPoints[0].dataIndex;
+  const maker = makers[dataIndex];
+  const alignLeft = tooltip.caretX > chart.width / 2;
+
+  tooltipEl.innerHTML = `
+    <strong>${escapeHtml(maker.name)}</strong>
+    <span>${maker.count} 기관 (${maker.rate.toFixed(2)}%)</span>
   `;
   tooltipEl.style.opacity = "1";
   tooltipEl.style.left = `${chart.canvas.offsetLeft + tooltip.caretX}px`;
@@ -1396,18 +1708,25 @@ function SelectedTestDetail({ selection }) {
 
       <h4>제조사별 Unacceptable 기관 수 비율 ({selectedSpecimen.key} 기준)</h4>
       <div className="donut-layout">
-        <div className="donut-box">
+        <div
+          className="donut-box"
+          role="button"
+          tabIndex={0}
+          aria-controls="institution-list-grid"
+          aria-expanded={showInstitutionGrid}
+          onClick={toggleInstitutionGrid}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              toggleInstitutionGrid();
+            }
+          }}
+        >
           <MakerDoughnutChart makers={makers} />
-          <button
-            type="button"
-            className="donut-center"
-            aria-controls="institution-list-grid"
-            aria-expanded={showInstitutionGrid}
-            onClick={toggleInstitutionGrid}
-          >
+          <div className="donut-center" aria-hidden="true">
             <strong>총 {total}개</strong>
             <span>기관</span>
-          </button>
+          </div>
         </div>
         <div className="maker-list">
           {makers.map((maker) => (
@@ -1526,7 +1845,65 @@ function NonconformanceInstitutionGrid({
   selectedTest,
   selectedSpecimen,
   onClose,
+  columns = nonconformanceInstitutionColumns,
 }) {
+  const [gridTooltip, setGridTooltip] = useState(null);
+  const hasAnswerColumn = columns.some((column) => column.key === "answer");
+  const showsOnlyResultAndAnswer =
+    hasAnswerColumn &&
+    columns.length === urineSedimentNonconformanceInstitutionColumns.length;
+  const rowClassName = `institution-grid-row${
+    hasAnswerColumn ? " has-answer-column" : ""
+  }${showsOnlyResultAndAnswer ? " sediment-result-grid" : ""}`;
+
+  const hideGridTooltip = () => {
+    setGridTooltip(null);
+  };
+
+  const showGridTooltip = (event, value) => {
+    const text = String(value ?? "");
+
+    if (!text) {
+      setGridTooltip(null);
+      return;
+    }
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    const hasRoomAbove = rect.top > 90;
+    const left = Math.min(
+      Math.max(rect.left + rect.width / 2, 20),
+      window.innerWidth - 20,
+    );
+    const top = hasRoomAbove ? rect.top - 8 : rect.bottom + 8;
+
+    setGridTooltip({
+      text,
+      left,
+      top,
+      placement: hasRoomAbove ? "above" : "below",
+    });
+  };
+
+  const renderGridCell = (value, key) => {
+    const text = String(value ?? "");
+
+    return (
+      <span
+        key={key}
+        className={`institution-grid-cell institution-grid-cell-${key}`}
+        role="gridcell"
+        title={text}
+        tabIndex={text ? 0 : undefined}
+        onMouseEnter={(event) => showGridTooltip(event, text)}
+        onMouseLeave={hideGridTooltip}
+        onFocus={(event) => showGridTooltip(event, text)}
+        onBlur={hideGridTooltip}
+      >
+        {text}
+      </span>
+    );
+  };
+
   return (
     <div className="nonconformance-list" id="nonconformance-institution-list">
       <div className="institution-list-head">
@@ -1544,31 +1921,62 @@ function NonconformanceInstitutionGrid({
         className="institution-grid"
         role="grid"
         aria-label="부적합 분석 Unacceptable 기관 목록"
+        onScroll={hideGridTooltip}
       >
-        <div
-          className="institution-grid-row institution-grid-header"
-          role="row"
-        >
-          {nonconformanceInstitutionColumns.map((column) => (
-            <span role="columnheader" key={column.key}>
-              {column.label}
-            </span>
-          ))}
+        <div className={`${rowClassName} institution-grid-header`} role="row">
+          {columns.map((column) => {
+            const description = institutionColumnDescriptions[column.key];
+
+            return (
+              <span
+                role="columnheader"
+                key={column.key}
+                title={description}
+                tabIndex={description ? 0 : undefined}
+                onMouseEnter={(event) => showGridTooltip(event, description)}
+                onMouseLeave={hideGridTooltip}
+                onFocus={(event) => showGridTooltip(event, description)}
+                onBlur={hideGridTooltip}
+              >
+                {column.label}
+                {description && (
+                  <i className="column-indicator" aria-hidden="true">
+                    i
+                  </i>
+                )}
+              </span>
+            );
+          })}
         </div>
         {rows.map((row, index) => (
           <div
-            className="institution-grid-row"
+            className={rowClassName}
             role="row"
-            key={`${row.code}-${row.specimenKey}-${index}`}
+            key={`${row.code}-${row.specimenKey ?? row.specimen ?? selectedSpecimen.key}-${index}`}
           >
-            {nonconformanceInstitutionColumns.map((column) => (
-              <span role="gridcell" key={column.key}>
-                {column.key === "no" ? index + 1 : row[column.key]}
-              </span>
-            ))}
+            {columns.map((column) =>
+              renderGridCell(
+                column.key === "no" ? index + 1 : row[column.key],
+                column.key,
+              ),
+            )}
           </div>
         ))}
       </div>
+      {gridTooltip && (
+        <div
+          className={`grid-cell-tooltip ${
+            gridTooltip.placement === "below" ? "is-below" : ""
+          }`}
+          role="tooltip"
+          style={{
+            left: `${gridTooltip.left}px`,
+            top: `${gridTooltip.top}px`,
+          }}
+        >
+          {gridTooltip.text}
+        </div>
+      )}
     </div>
   );
 }
@@ -1981,14 +2389,14 @@ function NonconformanceAnalysis() {
   );
 }
 
-function StatisticsDetail() {
+function StatisticsDetail({ rows: providedRows } = {}) {
   const [statisticsScope, setStatisticsScope] = useState("all");
   const [filters, setFilters] = useState(createDefaultStatisticsFilters);
   const [appliedComparisons, setAppliedComparisons] = useState(
     createDefaultStatisticsFilters,
   );
   const [sortConfig, setSortConfig] = useState({ key: "", direction: "asc" });
-  const rows = getStatisticsRows();
+  const rows = providedRows ?? getStatisticsRows();
   const scopeCounts = Object.fromEntries(
     statisticsScopeOptions.map((option) => [
       option.value,
@@ -2625,15 +3033,1198 @@ function StatisticsConfirmModal({ dialogType, onConfirm, onCancel, onClose }) {
   );
 }
 
+function AppHeader({ title }) {
+  return (
+    <header className="topbar">
+      <h1>{title}</h1>
+      <div className="user-menu">
+        <button type="button" aria-label="알림">
+          <span className="bell" />
+        </button>
+        <span className="avatar" aria-hidden="true" />
+        <strong>홍길동</strong>
+      </div>
+    </header>
+  );
+}
+
+function TatStatusHeader({
+  isStatisticsConfirmed,
+  onOpenStatisticsConfirm,
+  onResetStatisticsConfirm,
+}) {
+  return (
+    <section className="tat-strip status-header" aria-labelledby="tat-title">
+      <div>
+        <h2 id="tat-title">TAT 현황</h2>
+        <p>
+          결과 마감: 2026-02-05 · 목표 TAT: 5일 · 보고서 목표일: 2026-02-10
+        </p>
+      </div>
+      <div className="tat-progress">
+        <span>경과</span>
+        <strong>4일</strong>
+        <div className="progress-track" aria-label="TAT 경과율">
+          <span style={{ width: "62%" }} />
+        </div>
+        <span>남은 기간</span>
+        <strong className="danger">1일</strong>
+        <button
+          type="button"
+          disabled={isStatisticsConfirmed}
+          onClick={onOpenStatisticsConfirm}
+        >
+          통계확인 완료
+        </button>
+        {isStatisticsConfirmed && (
+          <button
+            type="button"
+            className="secondary"
+            onClick={onResetStatisticsConfirm}
+          >
+            통계취소
+          </button>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function ReportTabbar({ activeTab, onTabChange }) {
+  return (
+    <nav className="tabbar" aria-label="분석 탭">
+      {reportTabs.map((tab) => (
+        <button
+          type="button"
+          className={activeTab === tab.id ? "active" : undefined}
+          aria-current={activeTab === tab.id ? "page" : undefined}
+          key={tab.id}
+          onClick={() => onTabChange(tab.id)}
+        >
+          {tab.label}
+        </button>
+      ))}
+    </nav>
+  );
+}
+
+function ImageSpecimenModal({ onClose }) {
+  return (
+    <div className="modal-backdrop" role="presentation">
+      <div
+        className="image-specimen-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="image-specimen-title"
+      >
+        <div className="image-specimen-modal-head">
+          <h2 id="image-specimen-title">이미지 검체</h2>
+          <button type="button" aria-label="닫기" onClick={onClose}>
+            ×
+          </button>
+        </div>
+        <img src={urineImageSpecimenPreview} alt="소변검사 이미지 검체 예시" />
+      </div>
+    </div>
+  );
+}
+
+function UrineOverview({ onOpenImageSpecimen }) {
+  return (
+    <section className="summary-grid urine-summary-grid" aria-label="주요 지표">
+      {urineSummary.map((item) => (
+        <article className="summary-card" key={item.label}>
+          <span className="summary-icon" aria-hidden="true" />
+          <div>
+            <p>{item.label}</p>
+            <strong>{item.value}</strong>
+            <span>{item.unit}</span>
+          </div>
+        </article>
+      ))}
+
+      <article className="summary-card urine-specimen-card">
+        <span className="summary-icon" aria-hidden="true" />
+        <div>
+          <p>검체 수</p>
+          <div className="urine-specimen-counts">
+            <div>
+              <span>일반검체</span>
+              <strong>3</strong>
+              <em>개</em>
+            </div>
+            <button type="button" onClick={onOpenImageSpecimen}>
+              <span>이미지 검체</span>
+              <strong>4</strong>
+              <em>개</em>
+            </button>
+          </div>
+        </div>
+      </article>
+    </section>
+  );
+}
+
+function UrineUnacceptableRateChart({ onSelect }) {
+  const canvasRef = useRef(null);
+  const chartRef = useRef(null);
+  const scrollRef = useRef(null);
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const baseChartWidth = Math.max(860, urineUnacceptableRateData.tests.length * 78);
+  const chartWidth = Math.round(baseChartWidth * zoomLevel);
+
+  const clampZoom = (nextZoom) => Math.min(2, Math.max(0.75, nextZoom));
+
+  const changeZoom = (nextZoom) => {
+    setZoomLevel(clampZoom(nextZoom));
+  };
+
+  useEffect(() => {
+    if (!canvasRef.current) return undefined;
+
+    const chart = new Chart(canvasRef.current, {
+      type: "bar",
+      data: {
+        labels: urineUnacceptableRateData.tests.map((test) => test.name),
+        datasets: urineUnacceptableRateData.specimens.map((specimen, index) => ({
+          label: specimen.key,
+          data: urineUnacceptableRateData.tests.map((test) => test.values[index]),
+          backgroundColor: specimen.color,
+          borderColor: specimen.color,
+          borderWidth: 1,
+          borderRadius: 2,
+          maxBarThickness: 16,
+        })),
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        onClick(_event, elements) {
+          if (!elements.length) return;
+
+          const [{ datasetIndex, index }] = elements;
+          const value = urineUnacceptableRateData.tests[index].values[datasetIndex];
+          if (value === null || value === undefined) return;
+
+          onSelect({
+            testIndex: index,
+            specimenIndex: datasetIndex,
+          });
+        },
+        interaction: {
+          intersect: true,
+          mode: "nearest",
+        },
+        plugins: {
+          legend: {
+            display: false,
+          },
+          tooltip: {
+            callbacks: {
+              title(items) {
+                return urineUnacceptableRateData.tests[items[0].dataIndex].name;
+              },
+              label(context) {
+                if (context.raw === null || context.raw === undefined) {
+                  return "";
+                }
+
+                return `${context.dataset.label}: ${Number(context.raw).toFixed(2)}%`;
+              },
+            },
+          },
+        },
+        scales: {
+          x: {
+            grid: {
+              display: false,
+            },
+            ticks: {
+              color: "#25304a",
+              maxRotation: 45,
+              minRotation: 45,
+              font: {
+                size: 11,
+              },
+            },
+          },
+          y: {
+            beginAtZero: true,
+            suggestedMax: 11,
+            grid: {
+              color: "#d7dee8",
+            },
+            ticks: {
+              color: "#25304a",
+              callback(value) {
+                return `${Number(value).toFixed(2)}%`;
+              },
+            },
+          },
+        },
+      },
+    });
+
+    chartRef.current = chart;
+
+    return () => {
+      chart.destroy();
+      chartRef.current = null;
+    };
+  }, [onSelect]);
+
+  useEffect(() => {
+    chartRef.current?.resize();
+  }, [chartWidth]);
+
+  useEffect(() => {
+    const scrollNode = scrollRef.current;
+    if (!scrollNode) return undefined;
+
+    const handleWheel = (event) => {
+      if (!event.ctrlKey) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      setZoomLevel((currentZoom) =>
+        clampZoom(currentZoom + (event.deltaY < 0 ? 0.25 : -0.25)),
+      );
+    };
+
+    scrollNode.addEventListener("wheel", handleWheel, { passive: false });
+
+    return () => {
+      scrollNode.removeEventListener("wheel", handleWheel);
+    };
+  }, []);
+
+  return (
+    <article className="panel chart-panel">
+      <div className="panel-head">
+        <div>
+          <h3>검사항목별 Unacceptable Rate</h3>
+          <p>Unacceptable이 1건 이상인 검사만 표시</p>
+        </div>
+        <span>단위: %</span>
+      </div>
+      <div className="rate-chart">
+        <div className="chart-toolbar">
+          <div className="chart-legend" aria-label="검체 범례">
+            {urineUnacceptableRateData.specimens.map((specimen) => (
+              <span key={specimen.key}>
+                <i style={{ backgroundColor: specimen.color }} />
+                {specimen.key}
+              </span>
+            ))}
+          </div>
+          <div className="chart-zoom" aria-label="그래프 확대 축소">
+            <button
+              type="button"
+              onClick={() => changeZoom(zoomLevel - 0.25)}
+              aria-label="그래프 축소"
+            >
+              -
+            </button>
+            <input
+              type="range"
+              min="75"
+              max="200"
+              step="25"
+              value={Math.round(zoomLevel * 100)}
+              aria-label="그래프 확대율"
+              onChange={(event) => changeZoom(Number(event.target.value) / 100)}
+            />
+            <button
+              type="button"
+              onClick={() => changeZoom(zoomLevel + 0.25)}
+              aria-label="그래프 확대"
+            >
+              +
+            </button>
+            <button
+              type="button"
+              onClick={() => changeZoom(1)}
+              aria-label="그래프 확대 초기화"
+            >
+              100%
+            </button>
+          </div>
+        </div>
+        <div
+          ref={scrollRef}
+          className="chart-scroll"
+          aria-label="소변검사 검사항목별 Unacceptable Rate 그래프 스크롤 영역"
+        >
+          <div className="chart-canvas" style={{ width: `${chartWidth}px` }}>
+            <canvas
+              ref={canvasRef}
+              aria-label="소변검사 검사항목별 Unacceptable Rate 막대그래프"
+            />
+          </div>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function UrineMakerDoughnutChart({ makers }) {
+  const canvasRef = useRef(null);
+
+  useEffect(() => {
+    if (!canvasRef.current || makers.length === 0) return undefined;
+
+    const urineRateLabels = {
+      id: "urineRateLabels",
+      afterDatasetsDraw(chart) {
+        const meta = chart.getDatasetMeta(0);
+        const values = chart.data.datasets[0].data;
+        const { ctx } = chart;
+
+        ctx.save();
+        ctx.fillStyle = "#fff";
+        ctx.font = "700 12px Segoe UI, Malgun Gothic, Arial, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+
+        meta.data.forEach((arc, index) => {
+          const value = Number(values[index]);
+          if (value < 0.5) return;
+
+          const props = arc.getProps(
+            ["x", "y", "startAngle", "endAngle", "innerRadius", "outerRadius"],
+            true,
+          );
+          const angle = (props.startAngle + props.endAngle) / 2;
+          const radius = (props.innerRadius + props.outerRadius) / 2;
+          const x = props.x + Math.cos(angle) * radius;
+          const y = props.y + Math.sin(angle) * radius;
+
+          ctx.fillText(`${value.toFixed(2)}%`, x, y);
+        });
+
+        ctx.restore();
+      },
+    };
+
+    const chart = new Chart(canvasRef.current, {
+      type: "doughnut",
+      data: {
+        labels: makers.map((maker) => maker.name),
+        datasets: [
+          {
+            data: makers.map((maker) => maker.rate),
+            backgroundColor: makers.map((maker) => maker.color),
+            borderColor: "#fff",
+            borderWidth: 1,
+            hoverOffset: 3,
+          },
+        ],
+      },
+      plugins: [urineRateLabels],
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        cutout: "48%",
+        plugins: {
+          legend: {
+            display: false,
+          },
+          tooltip: {
+            enabled: false,
+            external: (context) => renderUrineDoughnutTooltip(context, makers),
+          },
+        },
+      },
+    });
+
+    return () => {
+      chart.destroy();
+      canvasRef.current?.parentNode?.querySelector(".donut-tooltip")?.remove();
+    };
+  }, [makers]);
+
+  return <canvas ref={canvasRef} aria-label="제조사별 Unacceptable rate 도넛 그래프" />;
+}
+
+function UrineSelectedTestDetail({ selection, doughnutRows, institutionRows }) {
+  const [showInstitutionGrid, setShowInstitutionGrid] = useState(false);
+  const [institutionPage, setInstitutionPage] = useState(1);
+  const [gridTooltip, setGridTooltip] = useState(null);
+  const selectedTest = urineUnacceptableRateData.tests[selection.testIndex];
+  const selectedSpecimen =
+    urineUnacceptableRateData.specimens[selection.specimenIndex];
+  const selectedTestKey = getUrineTestKey(selectedTest);
+  const selectedMakerRows = doughnutRows.filter(
+    (row) =>
+      row["검체명"] === selectedSpecimen.key &&
+      row["검사명"] === selectedTestKey &&
+      Number(row["Unacceptable rate"]) > 0,
+  );
+  const selectedInstitutionRows = institutionRows.filter(
+    (row) =>
+      row["검체명"] === selectedSpecimen.key && row["검사명"] === selectedTestKey,
+  );
+  const makers = selectedMakerRows.map((row, index) => {
+    const makerName = row["제조사"];
+    const institutionCount = selectedInstitutionRows.filter(
+      (institution) => institution["제조사명"] === makerName,
+    ).length;
+
+    return {
+      name: makerName,
+      rate: Number(row["Unacceptable rate"]),
+      count: institutionCount,
+      color: urineMakerColors[index % urineMakerColors.length],
+    };
+  });
+  const total = selectedInstitutionRows.length;
+  const institutionTotalPages = Math.max(
+    1,
+    Math.ceil(selectedInstitutionRows.length / institutionPageSize),
+  );
+  const institutionStartIndex = (institutionPage - 1) * institutionPageSize;
+  const visibleInstitutionRows = selectedInstitutionRows.slice(
+    institutionStartIndex,
+    institutionStartIndex + institutionPageSize,
+  );
+  const institutionEndIndex = Math.min(
+    institutionStartIndex + visibleInstitutionRows.length,
+    selectedInstitutionRows.length,
+  );
+
+  useEffect(() => {
+    setShowInstitutionGrid(false);
+    setInstitutionPage(1);
+    setGridTooltip(null);
+  }, [selection.testIndex, selection.specimenIndex]);
+
+  const toggleInstitutionGrid = () => {
+    if (!showInstitutionGrid) {
+      setInstitutionPage(1);
+    }
+    setShowInstitutionGrid((current) => !current);
+  };
+
+  const moveInstitutionPage = (nextPage) => {
+    setGridTooltip(null);
+    setInstitutionPage(Math.min(institutionTotalPages, Math.max(1, nextPage)));
+  };
+
+  const hideGridTooltip = () => {
+    setGridTooltip(null);
+  };
+
+  const showGridTooltip = (event, value) => {
+    const text = String(formatUrineCell(value));
+
+    if (!text) {
+      setGridTooltip(null);
+      return;
+    }
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    const hasRoomAbove = rect.top > 90;
+    const left = Math.min(
+      Math.max(rect.left + rect.width / 2, 20),
+      window.innerWidth - 20,
+    );
+    const top = hasRoomAbove ? rect.top - 8 : rect.bottom + 8;
+
+    setGridTooltip({
+      text,
+      left,
+      top,
+      placement: hasRoomAbove ? "above" : "below",
+    });
+  };
+
+  const renderInstitutionCell = (value) => {
+    const text = String(formatUrineCell(value));
+
+    return (
+      <span
+        role="gridcell"
+        title={text}
+        tabIndex={text ? 0 : undefined}
+        onMouseEnter={(event) => showGridTooltip(event, text)}
+        onMouseLeave={hideGridTooltip}
+        onFocus={(event) => showGridTooltip(event, text)}
+        onBlur={hideGridTooltip}
+      >
+        {text}
+      </span>
+    );
+  };
+
+  return (
+    <article className="panel detail-panel">
+      <div className="panel-head">
+        <h3>선택한 검사 상세</h3>
+      </div>
+      <div className="selection-row">
+        <div>
+          <span>선택 검사</span>
+          <strong>{selectedTest.name}</strong>
+        </div>
+        <div>
+          <span>선택 검체</span>
+          <strong>{selectedSpecimen.key}</strong>
+        </div>
+      </div>
+
+      <h4>제조사별 Unacceptable Rate ({selectedSpecimen.key} 기준)</h4>
+      {makers.length > 0 ? (
+        <div className="donut-layout">
+          <div
+            className="donut-box"
+            role="button"
+            tabIndex={0}
+            aria-controls="urine-institution-list-grid"
+            aria-expanded={showInstitutionGrid}
+            onClick={toggleInstitutionGrid}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                toggleInstitutionGrid();
+              }
+            }}
+          >
+            <UrineMakerDoughnutChart makers={makers} />
+            <div className="donut-center" aria-hidden="true">
+              <strong>총 {total}개</strong>
+              <span>기관</span>
+            </div>
+          </div>
+          <div className="maker-list">
+            {makers.map((maker) => (
+              <div className="maker-item" key={maker.name}>
+                <i style={{ backgroundColor: maker.color }} />
+                <b>{maker.name}</b>
+                <span>
+                  {maker.count} 기관 ({maker.rate.toFixed(2)}%)
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="urine-detail-empty">표시할 제조사 데이터가 없습니다.</div>
+      )}
+
+      {showInstitutionGrid && (
+        <div className="institution-list" id="urine-institution-list-grid">
+          <div className="institution-list-head">
+            <h4>Unacceptable 기관 목록</h4>
+            <div className="institution-list-actions">
+              <span>
+                전체 {selectedInstitutionRows.length}개 중{" "}
+                {selectedInstitutionRows.length > 0
+                  ? `${institutionStartIndex + 1}-${institutionEndIndex}`
+                  : "0"}
+                표시
+              </span>
+              <button
+                type="button"
+                className="excel-button"
+                onClick={() =>
+                  downloadUrineInstitutionCsv({
+                    selectedTest,
+                    selectedSpecimen,
+                    rows: selectedInstitutionRows,
+                  })
+                }
+              >
+                엑셀 다운로드
+              </button>
+            </div>
+          </div>
+          <div
+            className="institution-grid urine-institution-grid"
+            role="grid"
+            aria-label="소변검사 Unacceptable 기관 목록"
+            onScroll={hideGridTooltip}
+          >
+            <div
+              className="institution-grid-row institution-grid-header urine-institution-grid-row"
+              role="row"
+            >
+              {[
+                "No",
+                "기관코드",
+                "기관명",
+                "검체명",
+                "검사명",
+                "결과",
+                "제조사명",
+                "정답",
+                "기준분류SDI",
+                "세부SDI",
+              ].map((label) => (
+                <span role="columnheader" key={label}>
+                  {label}
+                </span>
+              ))}
+            </div>
+            {visibleInstitutionRows.map((row, index) => (
+              <div
+                className="institution-grid-row urine-institution-grid-row"
+                role="row"
+                key={`${row["기관코드"]}-${row["검체명"]}-${row["검사명"]}-${index}`}
+              >
+                {renderInstitutionCell(institutionStartIndex + index + 1)}
+                {renderInstitutionCell(row["기관코드"])}
+                {renderInstitutionCell(row["기관명"])}
+                {renderInstitutionCell(row["검체명"])}
+                {renderInstitutionCell(row["검사명"])}
+                {renderInstitutionCell(row["rslt"])}
+                {renderInstitutionCell(row["제조사명"])}
+                {renderInstitutionCell(row["정답"])}
+                {renderInstitutionCell(row["기준SDI"])}
+                {renderInstitutionCell(row["세부SDI"])}
+              </div>
+            ))}
+          </div>
+          {gridTooltip && (
+            <div
+              className={`grid-cell-tooltip ${
+                gridTooltip.placement === "below" ? "is-below" : ""
+              }`}
+              role="tooltip"
+              style={{
+                left: `${gridTooltip.left}px`,
+                top: `${gridTooltip.top}px`,
+              }}
+            >
+              {gridTooltip.text}
+            </div>
+          )}
+          <div
+            className="institution-pagination urine-institution-pagination"
+            aria-label="기관 목록 페이지"
+          >
+            <button
+              type="button"
+              aria-label="이전 페이지"
+              disabled={institutionPage === 1}
+              onClick={() => moveInstitutionPage(institutionPage - 1)}
+            >
+              ‹
+            </button>
+            <div className="urine-page-buttons">
+              {Array.from({ length: institutionTotalPages }, (_, index) => (
+                <button
+                  type="button"
+                  className={
+                    institutionPage === index + 1 ? "active" : undefined
+                  }
+                  key={index + 1}
+                  onClick={() => moveInstitutionPage(index + 1)}
+                >
+                  {index + 1}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              aria-label="다음 페이지"
+              disabled={institutionPage === institutionTotalPages}
+              onClick={() => moveInstitutionPage(institutionPage + 1)}
+            >
+              ›
+            </button>
+            <span>
+              {institutionPageSize}개씩 보기
+            </span>
+          </div>
+        </div>
+      )}
+    </article>
+  );
+}
+
+function UrineTrendLineChart({ selection, trendRows }) {
+  const canvasRef = useRef(null);
+  const selectedTest = urineUnacceptableRateData.tests[selection.testIndex];
+  const selectedSpecimen =
+    urineUnacceptableRateData.specimens[selection.specimenIndex];
+  const selectedTestKey = getUrineTestKey(selectedTest);
+  const selectedSpecimenOrder = getUrineSpecimenOrder(selectedSpecimen.key);
+  const selectedRows = trendRows
+    .filter(
+      (row) =>
+        row["검사명"] === selectedTestKey &&
+        Number(row["횟수"]) === selectedSpecimenOrder,
+    )
+    .map((row) => ({
+      period: `${row["회차년도"]}-${row["회차"]}`,
+      count: Number(String(row["Unaccep"]).replace(/,/g, "")),
+    }))
+    .sort((left, right) => left.period.localeCompare(right.period));
+
+  useEffect(() => {
+    if (!canvasRef.current) return undefined;
+
+    const lollipopLines = {
+      id: "urineLollipopLines",
+      beforeDatasetsDraw(chart) {
+        const meta = chart.getDatasetMeta(0);
+        const yScale = chart.scales.y;
+        const baseY = yScale.getPixelForValue(0);
+        const { ctx } = chart;
+
+        ctx.save();
+        ctx.strokeStyle = "#0d6efd";
+        ctx.lineWidth = 3;
+        meta.data.forEach((point) => {
+          const props = point.getProps(["x", "y"], true);
+          ctx.beginPath();
+          ctx.moveTo(props.x, baseY);
+          ctx.lineTo(props.x, props.y);
+          ctx.stroke();
+        });
+        ctx.restore();
+      },
+    };
+
+    const maxCount = Math.max(10, ...selectedRows.map((row) => row.count));
+    const chart = new Chart(canvasRef.current, {
+      type: "line",
+      data: {
+        labels: selectedRows.map((row) => row.period),
+        datasets: [
+          {
+            label: "Unacceptable 기관 수",
+            data: selectedRows.map((row) => row.count),
+            borderColor: "#0d6efd",
+            backgroundColor: "#fff",
+            pointBackgroundColor: "#fff",
+            pointBorderColor: "#0d6efd",
+            pointBorderWidth: 3,
+            pointRadius: 6,
+            pointHoverRadius: 7,
+            showLine: false,
+          },
+        ],
+      },
+      plugins: [lollipopLines],
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        plugins: {
+          legend: {
+            display: false,
+          },
+          tooltip: {
+            callbacks: {
+              label(context) {
+                return `${Number(context.raw).toLocaleString()} 기관`;
+              },
+            },
+          },
+        },
+        scales: {
+          x: {
+            grid: {
+              display: false,
+            },
+            ticks: {
+              color: "#25304a",
+              font: {
+                size: 11,
+              },
+            },
+          },
+          y: {
+            beginAtZero: true,
+            suggestedMax: Math.ceil(maxCount * 1.15),
+            grid: {
+              color: "#d7dee8",
+            },
+            ticks: {
+              color: "#25304a",
+              precision: 0,
+            },
+          },
+        },
+      },
+    });
+
+    return () => chart.destroy();
+  }, [selectedRows, selectedSpecimen.key, selectedTestKey]);
+
+  return (
+    <article className="panel trend-panel">
+      <div className="panel-head">
+        <div>
+          <h3>선택한 검사(검체) Unacceptable 기관 수 추이</h3>
+          <p>회차별 기관 수 롤리팝 차트</p>
+        </div>
+        <span>단위: 기관</span>
+      </div>
+      <div className="trend-selection">
+        <span>선택 검사</span>
+        <strong>{selectedTest.name}</strong>
+        <span>선택 검체</span>
+        <strong>{selectedSpecimen.key}</strong>
+      </div>
+      <div className="trend-canvas">
+        <canvas
+          ref={canvasRef}
+          aria-label="소변검사 선택 검사 검체의 회차별 Unacceptable 기관 수 추이"
+        />
+      </div>
+    </article>
+  );
+}
+
+function createUrineNonconformanceCards(rows) {
+  const cardMap = new Map();
+
+  rows.forEach((row) => {
+    const testCode = row.testCode;
+    const participating = Number(String(row.participating).replace(/,/g, ""));
+    const totalUnacceptable = Number(
+      String(row.totalUnacceptable).replace(/,/g, ""),
+    );
+    const count = Number(String(row.count).replace(/,/g, ""));
+
+    if (!testCode) return;
+
+    if (!cardMap.has(testCode)) {
+      cardMap.set(testCode, {
+        testCode,
+        testName: row.testName,
+        displayName: String(row.testName).replace(/^-/, ""),
+        participating: Number.isFinite(participating) ? participating : 0,
+        totalUnacceptable: Number.isFinite(totalUnacceptable)
+          ? totalUnacceptable
+          : 0,
+        specimens: [],
+      });
+    }
+
+    const card = cardMap.get(testCode);
+    card.specimens.push({
+      specimen: row.specimen,
+      count: Number.isFinite(count) ? count : 0,
+      rate:
+        Number.isFinite(participating) && participating > 0
+          ? (count / participating) * 100
+          : 0,
+    });
+  });
+
+  return Array.from(cardMap.values());
+}
+
+function UrineNonconformanceAnalysis({ rows, institutionRows }) {
+  const [selectedTestCode, setSelectedTestCode] = useState("");
+  const [institutionTarget, setInstitutionTarget] = useState(null);
+  const cards = createUrineNonconformanceCards(rows);
+  const selectedCard =
+    cards.find((card) => card.testCode === selectedTestCode) ?? cards[0];
+  const selectedInstitutionRows = institutionTarget
+    ? institutionRows.filter(
+        (row) =>
+          row.testName === institutionTarget.testName &&
+          row.specimen === institutionTarget.specimen,
+      )
+    : [];
+
+  const selectCard = (card) => {
+    setSelectedTestCode(card.testCode);
+    setInstitutionTarget(null);
+  };
+
+  const toggleInstitutionList = (event, card, specimen) => {
+    event.stopPropagation();
+    setSelectedTestCode(card.testCode);
+    setInstitutionTarget((currentTarget) => {
+      if (
+        currentTarget?.testName === card.testName &&
+        currentTarget?.specimen === specimen.specimen
+      ) {
+        return null;
+      }
+
+      return {
+        testName: card.testName,
+        testCode: card.testCode,
+        displayName: card.displayName,
+        specimen: specimen.specimen,
+      };
+    });
+  };
+
+  return (
+    <section className="nonconformance-view urine-nonconformance-view">
+      <article className="panel nonconformance-card-panel urine-nonconformance-panel">
+        <div className="panel-head">
+          <div>
+            <h3>검사항목별 Unacceptable 상세현황</h3>
+            <p>검체별 비교를 통해 특정 검체 문제 여부 파악</p>
+          </div>
+          <span>선택 검사: {selectedCard?.displayName ?? "-"}</span>
+        </div>
+
+        {cards.length > 0 ? (
+          <div
+            className="unacc-card-scroll urine-unacc-card-scroll"
+            aria-label="소변검사 검사항목별 Unacceptable 상세현황 카드 목록"
+          >
+            <div className="unacc-card-grid">
+              {cards.map((card) => {
+                const isSelected = selectedCard?.testCode === card.testCode;
+
+                return (
+                  <article
+                    className={`unacc-card${isSelected ? " selected" : ""}`}
+                    key={card.testCode}
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={isSelected}
+                    onClick={() => selectCard(card)}
+                    onKeyDown={(event) => {
+                      if (event.key !== "Enter" && event.key !== " ") return;
+                      event.preventDefault();
+                      selectCard(card);
+                    }}
+                  >
+                    <div className="unacc-card-title">
+                      <h4>{card.displayName}</h4>
+                    </div>
+
+                    <div className="unacc-card-metrics">
+                      <div>
+                        <span>참여기관</span>
+                        <strong>{card.participating.toLocaleString()}</strong>
+                      </div>
+                      <div>
+                        <span>1개이상 Unacc판정받은기관</span>
+                        <strong className="danger">
+                          {card.totalUnacceptable.toLocaleString()}
+                        </strong>
+                      </div>
+                    </div>
+
+                    <div
+                      className={`unacc-specimen-grid ${
+                        card.specimens.length > 3 ? "has-four" : ""
+                      }`}
+                    >
+                      {card.specimens.map((specimen) => (
+                        <div
+                          className="unacc-specimen-cell"
+                          key={specimen.specimen}
+                          title={`${specimen.specimen} ${formatPercent(
+                            specimen.rate,
+                          )} ${specimen.count.toLocaleString()}기관`}
+                        >
+                          <span>{specimen.specimen}</span>
+                          <b>{formatPercent(specimen.rate)}</b>
+                          <button
+                            type="button"
+                            className="unacc-count-button"
+                            aria-controls="nonconformance-institution-list"
+                            aria-expanded={
+                              institutionTarget?.testName === card.testName &&
+                              institutionTarget?.specimen === specimen.specimen
+                            }
+                            onClick={(event) =>
+                              toggleInstitutionList(event, card, specimen)
+                            }
+                          >
+                            {specimen.count.toLocaleString()}기관
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <div className="urine-detail-empty">표시할 부적합 분석 데이터가 없습니다.</div>
+        )}
+
+        {institutionTarget && (
+          <NonconformanceInstitutionGrid
+            rows={selectedInstitutionRows}
+            selectedTest={{ code: institutionTarget.displayName }}
+            selectedSpecimen={{ key: institutionTarget.specimen }}
+            onClose={() => setInstitutionTarget(null)}
+            columns={
+              institutionTarget.testName === "Urine sediment"
+                ? urineSedimentNonconformanceInstitutionColumns
+                : urineNonconformanceInstitutionColumns
+            }
+          />
+        )}
+      </article>
+    </section>
+  );
+}
+
+function NewPage({
+  isStatisticsConfirmed,
+  onOpenStatisticsConfirm,
+  onResetStatisticsConfirm,
+}) {
+  const [activeTab, setActiveTab] = useState("overview");
+  const [isImageSpecimenOpen, setIsImageSpecimenOpen] = useState(false);
+  const [urineSelection, setUrineSelection] = useState({
+    testIndex: 0,
+    specimenIndex: 0,
+  });
+  const [urineDoughnutRows, setUrineDoughnutRows] = useState([]);
+  const [urineInstitutionRows, setUrineInstitutionRows] = useState([]);
+  const [urineTrendRows, setUrineTrendRows] = useState([]);
+  const [urineNonconformanceRows, setUrineNonconformanceRows] = useState([]);
+  const [urineStatisticsRows, setUrineStatisticsRows] = useState([]);
+  const [urineNonconformanceInstitutionRows, setUrineNonconformanceInstitutionRows] =
+    useState([]);
+  const activeTabLabel = reportTabs.find((tab) => tab.id === activeTab)?.label;
+
+  useEffect(() => {
+    let isMounted = true;
+
+    Promise.all([
+      fetch(getDataUrl("urine-doughnut.csv")).then((response) =>
+        response.text(),
+      ),
+      fetch(getDataUrl("urine-institutions.csv")).then((response) =>
+        response.text(),
+      ),
+      fetch(getDataUrl("urine-trend.csv")).then((response) => response.text()),
+      fetch(getDataUrl("urine-statistics-quantitative.csv")).then((response) =>
+        response.text(),
+      ),
+      fetch(getDataUrl("urine-nonconformance.csv")).then((response) =>
+        response.text(),
+      ),
+      fetch(getDataUrl("urine-nonconformance-institutions.csv")).then(
+        (response) => response.text(),
+      ),
+    ])
+      .then(
+        ([
+          doughnutCsv,
+          institutionCsv,
+          trendCsv,
+          statisticsCsv,
+          nonconformanceCsv,
+          nonconformanceInstitutionCsv,
+        ]) => {
+        if (!isMounted) return;
+        setUrineDoughnutRows(parseCsv(doughnutCsv));
+        setUrineInstitutionRows(parseCsv(institutionCsv));
+        setUrineTrendRows(parseCsv(trendCsv));
+        setUrineStatisticsRows(parseCsv(statisticsCsv));
+        setUrineNonconformanceRows(parseCsv(nonconformanceCsv));
+        setUrineNonconformanceInstitutionRows(
+          parseCsv(nonconformanceInstitutionCsv),
+        );
+      },
+      )
+      .catch(() => {
+        if (!isMounted) return;
+        setUrineDoughnutRows([]);
+        setUrineInstitutionRows([]);
+        setUrineTrendRows([]);
+        setUrineStatisticsRows([]);
+        setUrineNonconformanceRows([]);
+        setUrineNonconformanceInstitutionRows([]);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  return (
+    <div className="app-shell">
+      <AppHeader title="2025년 1회차 소변검사" />
+      <TatStatusHeader
+        isStatisticsConfirmed={isStatisticsConfirmed}
+        onOpenStatisticsConfirm={onOpenStatisticsConfirm}
+        onResetStatisticsConfirm={onResetStatisticsConfirm}
+      />
+      <ReportTabbar activeTab={activeTab} onTabChange={setActiveTab} />
+
+      <main className="dashboard">
+        {activeTab === "overview" ? (
+          <>
+            <UrineOverview
+              onOpenImageSpecimen={() => setIsImageSpecimenOpen(true)}
+            />
+            <section className="content-grid">
+              <UrineUnacceptableRateChart onSelect={setUrineSelection} />
+              <UrineSelectedTestDetail
+                selection={urineSelection}
+                doughnutRows={urineDoughnutRows}
+                institutionRows={urineInstitutionRows}
+              />
+              <UrineTrendLineChart
+                selection={urineSelection}
+                trendRows={urineTrendRows}
+              />
+            </section>
+          </>
+        ) : activeTab === "nonconformance" ? (
+          <UrineNonconformanceAnalysis
+            rows={urineNonconformanceRows}
+            institutionRows={urineNonconformanceInstitutionRows}
+          />
+        ) : activeTab === "statistics-quantitative" ? (
+          <StatisticsDetail rows={urineStatisticsRows} />
+        ) : (
+          <section className="panel tab-empty-panel" aria-label="새 페이지 탭 영역">
+            <h2>{activeTabLabel}</h2>
+          </section>
+        )}
+      </main>
+
+      {isImageSpecimenOpen && (
+        <ImageSpecimenModal onClose={() => setIsImageSpecimenOpen(false)} />
+      )}
+    </div>
+  );
+}
+
 function App() {
   const [selection, setSelection] = useState({
     testIndex: 0,
     specimenIndex: 0,
   });
+  const [activePage, setActivePage] = useState(getPageIdFromHash);
   const [activeTab, setActiveTab] = useState("overview");
   const [isStatisticsConfirmed, setIsStatisticsConfirmed] = useState(false);
   const [statisticsDialog, setStatisticsDialog] = useState(null);
   const activeTabLabel = reportTabs.find((tab) => tab.id === activeTab)?.label;
+
+  useEffect(() => {
+    const syncActivePageWithUrl = () => {
+      setActivePage(getPageIdFromHash());
+    };
+
+    syncActivePageWithUrl();
+    window.addEventListener("hashchange", syncActivePageWithUrl);
+
+    return () => {
+      window.removeEventListener("hashchange", syncActivePageWithUrl);
+    };
+  }, []);
+
+  useEffect(() => {
+    document.title =
+      activePage === "new-page"
+        ? "소변검사 대시보드"
+        : "일반화학검사 대시보드";
+  }, [activePage]);
 
   const openStatisticsConfirm = () => {
     if (isStatisticsConfirmed) return;
@@ -2653,66 +4244,37 @@ function App() {
     setIsStatisticsConfirmed(false);
   };
 
+  const statisticsConfirmModal = statisticsDialog ? (
+    <StatisticsConfirmModal
+      dialogType={statisticsDialog}
+      onConfirm={confirmStatistics}
+      onCancel={cancelStatistics}
+      onClose={() => setStatisticsDialog(null)}
+    />
+  ) : null;
+
+  if (activePage === "new-page") {
+    return (
+      <>
+        <NewPage
+          isStatisticsConfirmed={isStatisticsConfirmed}
+          onOpenStatisticsConfirm={openStatisticsConfirm}
+          onResetStatisticsConfirm={resetStatisticsConfirm}
+        />
+        {statisticsConfirmModal}
+      </>
+    );
+  }
+
   return (
     <div className="app-shell">
-      <header className="topbar">
-        <h1>2025년 1회차 일반화학검사</h1>
-        <div className="user-menu">
-          <button type="button" aria-label="알림">
-            <span className="bell" />
-          </button>
-          <span className="avatar" aria-hidden="true" />
-          <strong>홍길동</strong>
-        </div>
-      </header>
-
-      <section className="tat-strip status-header" aria-labelledby="tat-title">
-        <div>
-          <h2 id="tat-title">TAT 현황</h2>
-          <p>
-            결과 마감: 2026-02-05 · 목표 TAT: 5일 · 보고서 목표일: 2026-02-10
-          </p>
-        </div>
-        <div className="tat-progress">
-          <span>경과</span>
-          <strong>4일</strong>
-          <div className="progress-track" aria-label="TAT 경과율">
-            <span style={{ width: "62%" }} />
-          </div>
-          <span>남은 기간</span>
-          <strong className="danger">1일</strong>
-          <button
-            type="button"
-            disabled={isStatisticsConfirmed}
-            onClick={openStatisticsConfirm}
-          >
-            통계확인 완료
-          </button>
-          {isStatisticsConfirmed && (
-            <button
-              type="button"
-              className="secondary"
-              onClick={resetStatisticsConfirm}
-            >
-              통계취소
-            </button>
-          )}
-        </div>
-      </section>
-
-      <nav className="tabbar" aria-label="분석 탭">
-        {reportTabs.map((tab) => (
-          <button
-            type="button"
-            className={activeTab === tab.id ? "active" : undefined}
-            aria-current={activeTab === tab.id ? "page" : undefined}
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </nav>
+      <AppHeader title="2025년 1회차 일반화학검사" />
+      <TatStatusHeader
+        isStatisticsConfirmed={isStatisticsConfirmed}
+        onOpenStatisticsConfirm={openStatisticsConfirm}
+        onResetStatisticsConfirm={resetStatisticsConfirm}
+      />
+      <ReportTabbar activeTab={activeTab} onTabChange={setActiveTab} />
 
       <main className="dashboard">
         {activeTab === "overview" ? (
@@ -2763,8 +4325,12 @@ function App() {
           </>
         ) : activeTab === "nonconformance" ? (
           <NonconformanceAnalysis />
-        ) : activeTab === "statistics" ? (
+        ) : activeTab === "statistics-quantitative" ? (
           <StatisticsDetail />
+        ) : activeTab === "statistics-qualitative" ? (
+          <section className="panel tab-empty-panel">
+            <h2>{activeTabLabel}</h2>
+          </section>
         ) : activeTab === "trend" ? (
           <TrendAnalysis />
         ) : (
@@ -2778,14 +4344,7 @@ function App() {
         )}
       </main>
 
-      {statisticsDialog && (
-        <StatisticsConfirmModal
-          dialogType={statisticsDialog}
-          onConfirm={confirmStatistics}
-          onCancel={cancelStatistics}
-          onClose={() => setStatisticsDialog(null)}
-        />
-      )}
+      {statisticsConfirmModal}
     </div>
   );
 }

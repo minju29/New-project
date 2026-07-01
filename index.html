@@ -9,7 +9,9 @@
         location.hostname.endsWith("github.io") &&
         !location.pathname.includes("/docs/")
       ) {
-        location.replace(new URL("./docs/", location.href));
+        const redirectUrl = new URL("./docs/", location.href);
+        redirectUrl.hash = location.hash;
+        location.replace(redirectUrl);
       }
     </script>
   </head>

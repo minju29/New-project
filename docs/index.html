@@ -9,11 +9,13 @@
         location.hostname.endsWith("github.io") &&
         !location.pathname.includes("/docs/")
       ) {
-        location.replace(new URL("./docs/", location.href));
+        const redirectUrl = new URL("./docs/", location.href);
+        redirectUrl.hash = location.hash;
+        location.replace(redirectUrl);
       }
     </script>
-    <script type="module" crossorigin src="./assets/index-0PkrmCn3.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-D6Rp_UtC.css">
+    <script type="module" crossorigin src="./assets/index-U8WW_jpQ.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-BP4bzC5D.css">
   </head>
   <body>
     <div id="root"></div>
