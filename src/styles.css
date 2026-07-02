@@ -1212,8 +1212,8 @@ button {
 
 .qualitative-table {
   table-layout: fixed;
-  min-width: 2920px;
-  width: 100%;
+  min-width: var(--qualitative-table-width, 935px);
+  width: max(100%, var(--qualitative-table-width, 935px));
   border-collapse: separate;
   border-spacing: 0;
   color: #151b2f;
@@ -1223,13 +1223,15 @@ button {
 .qualitative-table th,
 .qualitative-table td {
   height: 34px;
-  padding: 7px 9px;
+  padding: 7px 6px;
   border-right: 1px solid #dfe8f4;
   border-bottom: 1px solid #dfe8f4;
   background: #fff;
   text-align: center;
   vertical-align: middle;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .qualitative-table thead th {
@@ -1340,54 +1342,58 @@ button {
 }
 
 .qualitative-table .col-program {
-  width: 118px;
-  min-width: 118px;
+  width: 74px;
+  min-width: 74px;
 }
 
 .qualitative-table .col-parent-test {
-  width: 124px;
-  min-width: 124px;
+  width: 80px;
+  min-width: 80px;
 }
 
 .qualitative-table .col-test {
-  width: 104px;
-  min-width: 104px;
+  width: 76px;
+  min-width: 76px;
 }
 
 .qualitative-table .col-specimen {
-  width: 104px;
-  min-width: 104px;
+  width: 78px;
+  min-width: 78px;
 }
 
 .qualitative-table .col-category {
-  width: 220px;
-  min-width: 220px;
+  width: 132px;
+  min-width: 132px;
 }
 
-.qualitative-table .col-result,
+.qualitative-table .col-result {
+  width: 72px;
+  min-width: 72px;
+}
+
 .qualitative-table .col-count {
-  width: 118px;
-  min-width: 118px;
+  width: 28px;
+  min-width: 28px;
 }
 
 .qualitative-table .col-rate {
-  width: 118px;
-  min-width: 118px;
+  width: 31px;
+  min-width: 31px;
 }
 
 .qualitative-table .col-answer {
-  width: 250px;
-  min-width: 250px;
+  width: 158px;
+  min-width: 158px;
 }
 
 .qualitative-table .col-remark {
-  width: 176px;
-  min-width: 176px;
+  width: 86px;
+  min-width: 86px;
 }
 
 .qualitative-table .col-judgment {
-  width: 176px;
-  min-width: 176px;
+  width: 92px;
+  min-width: 92px;
 }
 
 .qualitative-table .col-compare {
@@ -1414,7 +1420,7 @@ button {
 }
 
 .qualitative-filter-row .statistics-compare {
-  grid-template-columns: 58px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 4px;
 }
 
@@ -1811,8 +1817,9 @@ button {
 
 .chart-scroll {
   width: 100%;
-  overflow-x: auto;
-  overflow-y: hidden;
+  height: 320px;
+  overflow: auto;
+  overscroll-behavior: contain;
   padding-bottom: 6px;
 }
 
@@ -1862,7 +1869,7 @@ button {
 
 .axis-label-hitbox:hover,
 .axis-label-hitbox.active {
-  background: rgba(160, 0, 86, 0.06);
+  background: transparent;
 }
 
 .axis-label-hitbox:focus-visible {

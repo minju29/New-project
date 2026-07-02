@@ -645,47 +645,35 @@ const statisticsScopeOptions = [
 ];
 
 const qualitativeBaseColumns = [
-  { key: "프로그램명", label: "프로그램명", className: "col-program", type: "text" },
-  { key: "상위검사명", label: "상위검사명", className: "col-parent-test", type: "text" },
-  { key: "검사명", label: "검사명", className: "col-test", type: "text" },
-  { key: "검체명", label: "검체명", className: "col-specimen", type: "text" },
-  { key: "기준분류", label: "기준분류", className: "col-category", type: "text" },
-  { key: "보고된 결과", label: "보고된 결과", className: "col-result number-cell", type: "text" },
+  { key: "프로그램명", label: "프로그램명", className: "col-program", type: "text", width: 74 },
+  { key: "상위검사명", label: "상위검사명", className: "col-parent-test", type: "text", width: 80 },
+  { key: "검사명", label: "검사명", className: "col-test", type: "text", width: 76 },
+  { key: "검체명", label: "검체명", className: "col-specimen", type: "text", width: 78 },
+  { key: "기준분류", label: "기준분류", className: "col-category", type: "text", width: 132 },
+  { key: "보고된 결과", label: "보고된 결과", className: "col-result number-cell", type: "text", width: 72 },
 ];
 
 const qualitativeSelectionColumns = [
-  { key: "결과선택기관수_전체", label: "전체", className: "col-count number-cell", type: "number" },
-  { key: "결과선택기관수_선택", label: "선택", className: "col-count number-cell", type: "number" },
-  { key: "결과선택기관수_비율", label: "비율", className: "col-rate number-cell", type: "number" },
-];
-
-const qualitativeExpectedColumns = [
-  { key: "예상 정답(INTENDED)", label: "예상 정답", className: "col-answer qualitative-expected-cell", type: "text", cellType: "answer" },
-  { key: "예상 Remark", label: "예상 Remark", className: "col-remark qualitative-expected-cell", type: "text", cellType: "remark" },
-  { key: "예상 판정", label: "예상 판정", className: "col-judgment qualitative-expected-cell", type: "text", cellType: "judgment" },
+  { key: "결과선택기관수_전체", label: "전체", className: "col-count number-cell", type: "number", width: 28 },
+  { key: "결과선택기관수_선택", label: "선택", className: "col-count number-cell", type: "number", width: 28 },
+  { key: "결과선택기관수_비율", label: "비율", className: "col-rate number-cell", type: "number", width: 31 },
 ];
 
 const qualitativeOperatorColumns = [
-  { key: "운영자 정답(INTENDED)", label: "운영자 정답", className: "col-answer qualitative-operator-cell", type: "text", cellType: "answer" },
-  { key: "운영자 Remark", label: "운영자 Remark", className: "col-remark qualitative-operator-cell", type: "text", cellType: "remark" },
-  { key: "운영자 판정", label: "운영자 판정", className: "col-judgment qualitative-operator-cell", type: "text", cellType: "judgment" },
+  { key: "운영자 정답(INTENDED)", label: "운영자 정답", className: "col-answer qualitative-operator-cell", type: "text", cellType: "answer", width: 158 },
+  { key: "운영자 Remark", label: "운영자 Remark", className: "col-remark qualitative-operator-cell", type: "text", cellType: "remark", width: 86 },
+  { key: "운영자 판정", label: "운영자 판정", className: "col-judgment qualitative-operator-cell", type: "text", cellType: "judgment", width: 92 },
 ];
-
-const qualitativeCompareColumn = {
-  key: "예상&운영자 정답 및 판정비교",
-  label: "예상&운영자 정답 및 판정비교",
-  className: "col-compare qualitative-compare-cell",
-  type: "text",
-  cellType: "comparison",
-};
 
 const qualitativeColumns = [
   ...qualitativeBaseColumns,
   ...qualitativeSelectionColumns,
-  ...qualitativeExpectedColumns,
   ...qualitativeOperatorColumns,
-  qualitativeCompareColumn,
 ];
+const qualitativeTableWidth = qualitativeColumns.reduce(
+  (total, column) => total + column.width,
+  0,
+);
 
 const urineResultDistributionAxisLabels = ["4.0", "4.5", "5.0", "5.5", "6.0", "6.5"];
 
@@ -2694,7 +2682,7 @@ function sortQualitativeRows(rows, sortConfig) {
 
 function downloadQualitativeExcel({ rows, sortConfig }) {
   const safeDate = new Date().toISOString().slice(0, 10);
-  const safeFileName = `정성_판정비교_${safeDate}`.replace(
+  const safeFileName = `정성_판정_${safeDate}`.replace(
     /[\\/:*?"<>|]/g,
     "_",
   );
@@ -2738,7 +2726,7 @@ function downloadQualitativeExcel({ rows, sortConfig }) {
       </head>
       <body>
         <table>
-          <caption>검사항목별 정성 판정 비교</caption>
+          <caption>검사항목별 정성 판정</caption>
           <tbody class="meta">
             <tr><td>정렬</td><td>${escapeHtml(sortText)}</td></tr>
             <tr><td>다운로드 row 수</td><td>${rows.length.toLocaleString()}</td></tr>
@@ -2957,8 +2945,8 @@ function UrineQualitativeStatistics({ rows }) {
       <article className="panel statistics-panel qualitative-statistics-panel">
         <div className="panel-head statistics-head">
           <div>
-            <h3>검사항목별 정성 판정 비교</h3>
-            <p>예상 정답과 운영자 정답 및 판정 차이를 한 화면에서 확인합니다</p>
+            <h3>검사항목별 정성 판정</h3>
+            <p>운영자 정답 및 판정 결과를 한 화면에서 확인합니다</p>
           </div>
           <div className="statistics-actions">
             <span>
@@ -3000,7 +2988,22 @@ function UrineQualitativeStatistics({ rows }) {
         </div>
 
         <div className="qualitative-table-wrap">
-          <table className="qualitative-table" aria-label="소변검사 정성 판정 비교">
+          <table
+            className="qualitative-table"
+            aria-label="소변검사 정성 판정"
+            style={{
+              "--qualitative-table-width": `${qualitativeTableWidth}px`,
+            }}
+          >
+            <colgroup>
+              {qualitativeColumns.map((column) => (
+                <col
+                  className={column.className}
+                  style={{ width: `${column.width}px` }}
+                  key={column.key}
+                />
+              ))}
+            </colgroup>
             <thead>
               <tr>
                 {qualitativeBaseColumns.map((column) =>
@@ -3015,29 +3018,15 @@ function UrineQualitativeStatistics({ rows }) {
                   결과선택기관수
                 </th>
                 <th
-                  className="qualitative-header-expected"
-                  colSpan={qualitativeExpectedColumns.length}
-                >
-                  예상 정답(INTENDED)
-                </th>
-                <th
                   className="qualitative-header-operator"
                   colSpan={qualitativeOperatorColumns.length}
                 >
                   운영자 정답(INTENDED)
                 </th>
-                {renderSortHeader(
-                  qualitativeCompareColumn,
-                  "qualitative-header-compare",
-                  { rowSpan: 2 },
-                )}
               </tr>
               <tr>
                 {qualitativeSelectionColumns.map((column) =>
                   renderSortHeader(column, "qualitative-header-base"),
-                )}
-                {qualitativeExpectedColumns.map((column) =>
-                  renderSortHeader(column, "qualitative-header-expected"),
                 )}
                 {qualitativeOperatorColumns.map((column) =>
                   renderSortHeader(column, "qualitative-header-operator"),
@@ -3913,8 +3902,11 @@ function UrineUnacceptableRateChart({ selectedTestIndex, onSelect }) {
   const scrollRef = useRef(null);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [axisLabelHitboxes, setAxisLabelHitboxes] = useState([]);
+  const previousZoomLevelRef = useRef(zoomLevel);
   const baseChartWidth = Math.max(860, urineUnacceptableRateData.tests.length * 78);
+  const baseChartHeight = 294;
   const chartWidth = Math.round(baseChartWidth * zoomLevel);
+  const chartHeight = Math.round(baseChartHeight * zoomLevel);
 
   const clampZoom = (nextZoom) => Math.min(2, Math.max(0.75, nextZoom));
 
@@ -4037,7 +4029,18 @@ function UrineUnacceptableRateChart({ selectedTestIndex, onSelect }) {
 
     chartRef.current.resize();
     setAxisLabelHitboxes(createUrineAxisLabelHitboxes(chartRef.current));
-  }, [chartWidth]);
+
+    window.requestAnimationFrame(() => {
+      const scrollNode = scrollRef.current;
+      if (!scrollNode) return;
+
+      if (zoomLevel >= previousZoomLevelRef.current) {
+        scrollNode.scrollTop = scrollNode.scrollHeight - scrollNode.clientHeight;
+      }
+
+      previousZoomLevelRef.current = zoomLevel;
+    });
+  }, [chartWidth, chartHeight, zoomLevel]);
 
   useEffect(() => {
     const scrollNode = scrollRef.current;
@@ -4119,7 +4122,10 @@ function UrineUnacceptableRateChart({ selectedTestIndex, onSelect }) {
         >
           <div
             className="chart-canvas"
-            style={{ width: `max(100%, ${chartWidth}px)` }}
+            style={{
+              width: `max(100%, ${chartWidth}px)`,
+              height: `${chartHeight}px`,
+            }}
           >
             <canvas
               ref={canvasRef}
