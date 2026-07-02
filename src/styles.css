@@ -1515,6 +1515,10 @@ button {
   font-size: 11px;
 }
 
+.urine-trend-analysis-table {
+  min-width: 1180px;
+}
+
 .trend-analysis-table th,
 .trend-analysis-table td {
   height: 28px;

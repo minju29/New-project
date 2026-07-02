@@ -4488,6 +4488,271 @@ function UrineTrendLineChart({ selection, trendRows }) {
   );
 }
 
+function getUrineTrendPeriodKey(row) {
+  return `${row["회차년도"]}-${row["회차"]}`;
+}
+
+function getUrineTrendPeriodSortValue(periodKey) {
+  const [year, number] = String(periodKey).split("-");
+  return Number(year) * 100 + Number(number);
+}
+
+function formatUrineTrendTestName(testName) {
+  return String(testName ?? "").replace(/^-/, "");
+}
+
+function createUrineTrendAnalysisData(rows) {
+  const periodMap = new Map();
+  const rowMap = new Map();
+
+  rows.forEach((row) => {
+    const periodKey = getUrineTrendPeriodKey(row);
+    const testCode = row["검사코드"];
+    const testName = row["검사명"];
+    const specimenOrder = Number(row["횟수"]);
+    const groupKey = `${testCode}-${specimenOrder}`;
+    const rate = parseStatisticNumber(row["unaccep rate"]);
+    const unacceptableCount = parseStatisticNumber(row["Unaccep"]);
+    const participatingCount = parseStatisticNumber(row["기관수"]);
+
+    if (!testCode || !Number.isFinite(specimenOrder)) return;
+
+    if (!periodMap.has(periodKey)) {
+      periodMap.set(periodKey, {
+        key: periodKey,
+        label: periodKey,
+        sortValue: getUrineTrendPeriodSortValue(periodKey),
+      });
+    }
+
+    if (!rowMap.has(groupKey)) {
+      rowMap.set(groupKey, {
+        code: groupKey,
+        testCode,
+        testName,
+        displayTestName: formatUrineTrendTestName(testName),
+        specimenOrder,
+        specimenNamesByPeriod: new Map(),
+        valuesByPeriod: new Map(),
+      });
+    }
+
+    const trendRow = rowMap.get(groupKey);
+    trendRow.specimenNamesByPeriod.set(periodKey, row["검체명"]);
+    trendRow.valuesByPeriod.set(periodKey, {
+      periodKey,
+      rate,
+      unacceptableCount,
+      participatingCount,
+      specimenName: row["검체명"],
+    });
+  });
+
+  const periods = Array.from(periodMap.values()).sort(
+    (left, right) => left.sortValue - right.sortValue,
+  );
+  const currentPeriod = periods.at(-1);
+  const rowsByTrend = Array.from(rowMap.values())
+    .sort((left, right) => {
+      const testCompare = String(left.testCode).localeCompare(
+        String(right.testCode),
+        "ko",
+        {
+          numeric: true,
+          sensitivity: "base",
+        },
+      );
+
+      if (testCompare !== 0) return testCompare;
+      return left.specimenOrder - right.specimenOrder;
+    })
+    .map((row) => {
+      const periodValues = periods.map((period) => {
+        const value = row.valuesByPeriod.get(period.key);
+
+        return (
+          value ?? {
+            periodKey: period.key,
+            rate: null,
+            unacceptableCount: null,
+            participatingCount: null,
+            specimenName: "",
+          }
+        );
+      });
+      const chartValues = periodValues.map((value, index) => ({
+        ...value,
+        label: periods[index].label,
+      }));
+      const availableValues = periodValues.filter((value) => value.rate !== null);
+      const currentValue = row.valuesByPeriod.get(currentPeriod?.key);
+      const currentSpecimenName =
+        currentValue?.specimenName ??
+        availableValues.at(-1)?.specimenName ??
+        `${row.specimenOrder}검체`;
+      const latestValue = availableValues.at(-1);
+      const previousValue = availableValues.at(-2);
+      const trendValue =
+        latestValue && previousValue
+          ? Number(latestValue.rate) - Number(previousValue.rate)
+          : null;
+
+      return {
+        code: row.code,
+        displayName: `${row.displayTestName} / ${currentSpecimenName}`,
+        periodValues,
+        chartValues,
+        trendValue,
+      };
+    });
+
+  return {
+    periods: periods.map((period) => ({
+      ...period,
+      isCurrent: period.key === currentPeriod?.key,
+    })),
+    rows: rowsByTrend,
+  };
+}
+
+function UrineTrendAnalysis({ rows }) {
+  const { periods, rows: trendRows } = createUrineTrendAnalysisData(rows);
+  const [selectedCode, setSelectedCode] = useState(trendRows[0]?.code ?? "");
+  const chartPanelRef = useRef(null);
+  const selectedRow =
+    trendRows.find((row) => row.code === selectedCode) ?? trendRows[0];
+
+  useEffect(() => {
+    if (!selectedCode && trendRows[0]?.code) {
+      setSelectedCode(trendRows[0].code);
+    }
+  }, [selectedCode, trendRows]);
+
+  const selectTrendRow = (rowCode) => {
+    setSelectedCode(rowCode);
+    window.requestAnimationFrame(() => {
+      chartPanelRef.current?.scrollIntoView({
+        block: "nearest",
+        behavior: "smooth",
+      });
+    });
+  };
+
+  if (trendRows.length === 0) {
+    return (
+      <section className="panel tab-empty-panel">
+        <h2>추이분석</h2>
+        <p>표시할 소변검사 추이 데이터가 없습니다.</p>
+      </section>
+    );
+  }
+
+  return (
+    <section className="trend-analysis-view urine-trend-analysis-view">
+      <article className="panel trend-analysis-panel">
+        <div className="trend-analysis-title">
+          <h3>검사항목/검체별 Unacceptable Rate 추이 테이블</h3>
+          <span>추세 = 직전 회차 대비 변화</span>
+        </div>
+
+        <div className="trend-table-wrap">
+          <table className="trend-analysis-table urine-trend-analysis-table">
+            <thead>
+              <tr>
+                <th scope="col">검사항목 / 검체</th>
+                {periods.map((period) => (
+                  <th
+                    className={period.isCurrent ? "is-current" : undefined}
+                    key={period.key}
+                    scope="col"
+                  >
+                    {period.label}
+                  </th>
+                ))}
+                <th scope="col">추세</th>
+              </tr>
+            </thead>
+            <tbody>
+              {trendRows.map((row) => {
+                const changeTone = getTrendChangeTone(row.trendValue);
+                const isSelected = selectedRow?.code === row.code;
+
+                return (
+                  <tr
+                    className={isSelected ? "is-selected" : undefined}
+                    key={row.code}
+                    tabIndex={0}
+                    onClick={() => selectTrendRow(row.code)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        selectTrendRow(row.code);
+                      }
+                    }}
+                  >
+                    <th scope="row">{row.displayName}</th>
+                    {row.periodValues.map((value, index) => {
+                      const period = periods[index];
+                      const rateTone = getTrendRateTone(value.rate);
+                      const className = [
+                        "trend-rate-cell",
+                        `is-${rateTone}`,
+                        period?.isCurrent ? "is-current" : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" ");
+                      const countTitle =
+                        value.rate === null
+                          ? "해당 회차 데이터 없음"
+                          : `${value.specimenName} / Unacceptable 기관수 ${Number(
+                              value.unacceptableCount,
+                            ).toLocaleString()} / 참여기관수 ${Number(
+                              value.participatingCount,
+                            ).toLocaleString()}`;
+
+                      return (
+                        <td
+                          className={className}
+                          key={`${row.code}-${value.periodKey}`}
+                          title={countTitle}
+                        >
+                          {formatTrendRate(value.rate)}
+                        </td>
+                      );
+                    })}
+                    <td className={`trend-change-cell is-${changeTone}`}>
+                      <span aria-hidden="true">
+                        {getTrendChangeIcon(changeTone)}
+                      </span>
+                      {formatTrendChange(row.trendValue)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+      {selectedRow && (
+        <article
+          className="panel trend-analysis-chart-panel"
+          ref={chartPanelRef}
+        >
+          <div className="panel-head">
+            <div>
+              <h3>회차별 Unacc Rate 추이</h3>
+              <p>{selectedRow.displayName}</p>
+            </div>
+            <span>막대: 참여기관수 · 선: Unacceptable Rate (%)</span>
+          </div>
+          <TrendAnalysisChart row={selectedRow} />
+        </article>
+      )}
+    </section>
+  );
+}
+
 function createUrineNonconformanceCards(rows) {
   const cardMap = new Map();
 
@@ -5009,6 +5274,8 @@ function NewPage({
           <StatisticsDetail rows={urineStatisticsRows} />
         ) : activeTab === "statistics-qualitative" ? (
           <UrineQualitativeStatistics rows={urineQualitativeStatisticsRows} />
+        ) : activeTab === "trend" ? (
+          <UrineTrendAnalysis rows={urineTrendRows} />
         ) : (
           <section className="panel tab-empty-panel" aria-label="새 페이지 탭 영역">
             <h2>{activeTabLabel}</h2>
