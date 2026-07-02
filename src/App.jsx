@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArcElement,
   BarController,
@@ -14,6 +14,14 @@ import {
   PointElement,
   Tooltip,
 } from "chart.js";
+import {
+  AckButton,
+  AckContentTabs,
+  AckDialog,
+  AckResponsiveDialog,
+} from "@ADS/ui";
+import { AckDataGrid } from "@ADS/data-grid";
+import { Bell, CircleUserRound } from "lucide-react";
 import { statisticsRows } from "./statisticsData.js";
 import { trendTableData } from "./trendData.js";
 
@@ -61,7 +69,7 @@ const urineImageSpecimenPreview = `data:image/svg+xml;utf8,${encodeURIComponent(
     <rect x="394" y="176" width="218" height="54" rx="10" fill="#fff2f6"/>
     <rect x="394" y="258" width="218" height="54" rx="10" fill="#eef8f0"/>
     <circle cx="419" cy="121" r="9" fill="#0869f4"/>
-    <circle cx="419" cy="203" r="9" fill="#a00056"/>
+    <circle cx="419" cy="203" r="9" fill="#b32572"/>
     <circle cx="419" cy="285" r="9" fill="#11a940"/>
     <rect x="442" y="112" width="128" height="10" rx="5" fill="#718096"/>
     <rect x="442" y="130" width="92" height="8" rx="4" fill="#a6b1c2"/>
@@ -77,7 +85,7 @@ const urineUnacceptableRateData = {
     { key: "CU-25-01", color: "#0869f4" },
     { key: "CU-25-02", color: "#ff7a00" },
     { key: "CU-25-03", color: "#25a636" },
-    { key: "CUI-25-01", color: "#a00056" },
+    { key: "CUI-25-01", color: "#b32572" },
     { key: "CUI-25-02", color: "#7954dd" },
     { key: "CUI-25-03", color: "#0894b5" },
     { key: "CUI-25-04", color: "#f59e0b" },
@@ -107,7 +115,7 @@ const urineMakerColors = [
   "#0869f4",
   "#ff7a00",
   "#25a636",
-  "#a00056",
+  "#b32572",
   "#7954dd",
   "#0894b5",
   "#db2877",
@@ -210,62 +218,6 @@ function getUrineSpecimenOrder(specimenKey) {
 function formatUrineCell(value) {
   if (value === undefined || value === null || value === "[NULL]") return "";
   return value;
-}
-
-function downloadUrineInstitutionCsv({ selectedTest, selectedSpecimen, rows }) {
-  const headers = [
-    "No",
-    "기관코드",
-    "기관명",
-    "검체명",
-    "검사명",
-    "결과",
-    "제조사명",
-    "정답",
-    "기준분류SDI",
-    "세부SDI",
-  ];
-  const csvRows = [
-    headers,
-    ...rows.map((row, index) => [
-      index + 1,
-      row["기관코드"],
-      row["기관명"],
-      row["검체명"],
-      row["검사명"],
-      row["rslt"],
-      row["제조사명"],
-      row["정답"],
-      row["기준SDI"],
-      row["세부SDI"],
-    ]),
-  ];
-  const csv = csvRows
-    .map((row) =>
-      row
-        .map((value) => {
-          const cell = formatUrineCell(value);
-          return `"${String(cell).replace(/"/g, '""')}"`;
-        })
-        .join(","),
-    )
-    .join("\n");
-  const safeFileName =
-    `${selectedTest.name}_${selectedSpecimen.key}_Unacceptable기관목록`.replace(
-      /[\\/:*?"<>|]/g,
-      "_",
-    );
-  const blob = new Blob(["\ufeff", csv], {
-    type: "text/csv;charset=utf-8",
-  });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `${safeFileName}.csv`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
 }
 
 const unacceptableRateData = {
@@ -623,6 +575,58 @@ const institutionColumnDescriptions = {
   instrument: "검사에 사용한 장비명입니다.",
 };
 
+// 행 순번(No)을 데이터에 주입 — 그리드 showRowNumbers는 헤더 컬럼을 만들지 않아 값과 겹치므로 명시 컬럼 사용
+const withRowNo = (rows) => rows.map((row, index) => ({ ...row, __no: index + 1 }));
+
+// 명시적 No 컬럼 정의 (showRowNumbers 대체)
+const rowNoColumn = {
+  field: "__no",
+  headerName: "No",
+  width: 56,
+  minWidth: 56,
+  align: "center",
+  headerAlign: "center",
+  sortable: false,
+  cellRenderer: ({ row }) => row.__no,
+};
+
+// {key,label}[] → AckDataGrid 컬럼 정의. "no"는 rowNoColumn으로 대체(제외).
+const toInstitutionGridColumns = (cols) => [
+  rowNoColumn,
+  ...cols
+    .filter((column) => column.key !== "no")
+    .map((column) => ({
+      field: column.key,
+      headerName: column.label,
+      align: "left",
+      tooltip: "overflow",
+    })),
+];
+
+// 요검사 개요 기관 그리드 — 필드명≠헤더, [NULL] 정리 필요한 컬럼은 cellRenderer 적용.
+const urineInstitutionGridColumns = [
+  rowNoColumn,
+  { field: "기관코드", headerName: "기관코드", tooltip: "overflow" },
+  { field: "기관명", headerName: "기관명", tooltip: "overflow" },
+  { field: "검체명", headerName: "검체명", tooltip: "overflow" },
+  { field: "검사명", headerName: "검사명", tooltip: "overflow" },
+  {
+    field: "rslt",
+    headerName: "결과",
+    tooltip: "overflow",
+    cellRenderer: ({ row }) => formatUrineCell(row.rslt),
+  },
+  { field: "제조사명", headerName: "제조사명", tooltip: "overflow" },
+  {
+    field: "정답",
+    headerName: "정답",
+    tooltip: "overflow",
+    cellRenderer: ({ row }) => formatUrineCell(row["정답"]),
+  },
+  { field: "기준SDI", headerName: "기준분류SDI", align: "right" },
+  { field: "세부SDI", headerName: "세부SDI", align: "right" },
+];
+
 const statisticsColumns = [
   { key: "testItem", label: "검사항목", type: "text" },
   { key: "specimenName", label: "검체명", type: "text" },
@@ -643,6 +647,37 @@ const statisticsScopeOptions = [
   { value: "base", label: "기준분류 통계" },
   { value: "detail", label: "세분류 통계" },
 ];
+
+// 통계 숫자 컬럼 정렬용 비교자 — 화학(number)/요검사 CSV(string) 혼합값을 숫자로 파싱해 정렬. null은 뒤로.
+const numCmp = (a, b) => {
+  const na = parseStatisticNumber(a);
+  const nb = parseStatisticNumber(b);
+  if (na === null && nb === null) return 0;
+  if (na === null) return 1;
+  if (nb === null) return -1;
+  return na - nb;
+};
+
+// AckDataGrid용 통계 컬럼 정의. 숫자 컬럼은 formatStatisticValue로 표시(소수점/콤마/`-`),
+// numCmp로 정렬, 고유값이 많아 filter는 text(부분일치) 사용.
+const STAT_COL_WIDTH = { testItem: 240, specimenName: 116 };
+const statisticsGridColumns = statisticsColumns.map((column) => {
+  const isNumber = column.type === "number";
+  return {
+    field: column.key,
+    headerName: column.label,
+    align: isNumber ? "right" : "left",
+    headerAlign: isNumber ? "right" : "left",
+    sortable: true,
+    filter: "checklist",
+    tooltip: "overflow",
+    cellRenderer: ({ row }) => formatStatisticValue(row, column),
+    ...(STAT_COL_WIDTH[column.key]
+      ? { width: STAT_COL_WIDTH[column.key], minWidth: STAT_COL_WIDTH[column.key] }
+      : {}),
+    ...(isNumber ? { comparator: (a, b) => numCmp(a, b) } : {}),
+  };
+});
 
 const qualitativeBaseColumns = [
   { key: "프로그램명", label: "프로그램명", className: "col-program", type: "text", width: 74 },
@@ -676,22 +711,6 @@ const qualitativeTableWidth = qualitativeColumns.reduce(
 );
 
 const urineResultDistributionAxisLabels = ["4.0", "4.5", "5.0", "5.5", "6.0", "6.5"];
-
-const numericCompareOperators = [
-  { value: "", label: "비교" },
-  { value: ">=", label: "≥" },
-  { value: ">", label: ">" },
-  { value: "=", label: "=" },
-  { value: "<=", label: "≤" },
-  { value: "<", label: "<" },
-];
-
-const textCompareOperators = [
-  { value: "", label: "비교" },
-  { value: "contains", label: "포함" },
-  { value: "equals", label: "일치" },
-  { value: "notContains", label: "제외" },
-];
 
 const doughnutPercentLabels = {
   id: "doughnutPercentLabels",
@@ -771,88 +790,6 @@ function formatStatisticValue(row, column) {
   return value;
 }
 
-function createDefaultStatisticsFilters() {
-  return Object.fromEntries(
-    statisticsColumns.map((column) => [
-      column.key,
-      {
-        search: "",
-        operator: "",
-        compareValue: "",
-      },
-    ]),
-  );
-}
-
-function compareNumberValue(cellValue, operator, compareValue) {
-  if (cellValue === null || cellValue === undefined || cellValue === "")
-    return false;
-  const cellNumber = parseStatisticNumber(cellValue);
-  const targetNumber = parseStatisticNumber(compareValue);
-
-  if (cellNumber === null || targetNumber === null) return false;
-  if (operator === ">=") return cellNumber >= targetNumber;
-  if (operator === ">") return cellNumber > targetNumber;
-  if (operator === "=") return cellNumber === targetNumber;
-  if (operator === "<=") return cellNumber <= targetNumber;
-  if (operator === "<") return cellNumber < targetNumber;
-
-  return true;
-}
-
-function compareTextValue(cellValue, operator, compareValue) {
-  const normalizedCellValue = String(cellValue).toLowerCase();
-  const normalizedCompareValue = String(compareValue).trim().toLowerCase();
-
-  if (!normalizedCompareValue) return true;
-  if (operator === "contains")
-    return normalizedCellValue.includes(normalizedCompareValue);
-  if (operator === "equals")
-    return normalizedCellValue === normalizedCompareValue;
-  if (operator === "notContains")
-    return !normalizedCellValue.includes(normalizedCompareValue);
-
-  return true;
-}
-
-function rowMatchesStatisticsFilters(row, filters, appliedComparisons) {
-  return statisticsColumns.every((column) => {
-    const filter = filters[column.key] ?? {};
-    const comparisonFilter = appliedComparisons[column.key] ?? {};
-    const rawValue = row[column.key];
-    const displayValue = formatStatisticValue(row, column);
-    const searchValue = filter.search.trim().toLowerCase();
-
-    if (
-      searchValue &&
-      !String(displayValue).toLowerCase().includes(searchValue)
-    ) {
-      return false;
-    }
-
-    if (
-      !comparisonFilter.operator ||
-      !String(comparisonFilter.compareValue).trim()
-    ) {
-      return true;
-    }
-
-    if (column.type === "number") {
-      return compareNumberValue(
-        rawValue,
-        comparisonFilter.operator,
-        comparisonFilter.compareValue,
-      );
-    }
-
-    return compareTextValue(
-      rawValue,
-      comparisonFilter.operator,
-      comparisonFilter.compareValue,
-    );
-  });
-}
-
 function rowMatchesStatisticsScope(row, scope) {
   const hasBaseCategory = Boolean(row.baseCategory);
   const hasDetailCategory = Boolean(row.detailCategory);
@@ -864,201 +801,8 @@ function rowMatchesStatisticsScope(row, scope) {
   return true;
 }
 
-function sortStatisticsRows(rows, sortConfig) {
-  if (!sortConfig.key) return rows;
-
-  const column = statisticsColumns.find(
-    (statisticsColumn) => statisticsColumn.key === sortConfig.key,
-  );
-  if (!column) return rows;
-
-  return rows
-    .map((row, index) => ({ row, index }))
-    .sort((left, right) => {
-      const leftValue = left.row[column.key];
-      const rightValue = right.row[column.key];
-      const leftIsEmpty =
-        leftValue === null || leftValue === undefined || leftValue === "";
-      const rightIsEmpty =
-        rightValue === null || rightValue === undefined || rightValue === "";
-
-      if (leftIsEmpty && rightIsEmpty) return left.index - right.index;
-      if (leftIsEmpty) return 1;
-      if (rightIsEmpty) return -1;
-
-      let comparison;
-
-      if (column.type === "number") {
-        comparison =
-          parseStatisticNumber(leftValue) - parseStatisticNumber(rightValue);
-      } else {
-        comparison = String(leftValue).localeCompare(String(rightValue), "ko", {
-          numeric: true,
-          sensitivity: "base",
-        });
-      }
-
-      if (comparison === 0) return left.index - right.index;
-      return sortConfig.direction === "asc" ? comparison : -comparison;
-    })
-    .map((item) => item.row);
-}
-
 function getStatisticsRows() {
   return statisticsRows;
-}
-
-function escapeHtml(value) {
-  return String(value).replace(
-    /[&<>"']/g,
-    (char) =>
-      ({
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#39;",
-      })[char],
-  );
-}
-
-function downloadInstitutionExcel({ selectedTest, selectedSpecimen, rows }) {
-  const tableRows = rows.map((row, index) => ({
-    no: index + 1,
-    ...row,
-  }));
-  const safeFileName =
-    `${selectedTest.code}_${selectedSpecimen.key}_기관목록`.replace(
-      /[\\/:*?"<>|]/g,
-      "_",
-    );
-
-  const headerCells = institutionColumns
-    .map((column) => `<th>${escapeHtml(column.label)}</th>`)
-    .join("");
-  const bodyRows = tableRows
-    .map(
-      (row) =>
-        `<tr>${institutionColumns
-          .map(
-            (column) =>
-              `<td style="mso-number-format:'\\@';">${escapeHtml(row[column.key] ?? "")}</td>`,
-          )
-          .join("")}</tr>`,
-    )
-    .join("");
-
-  const html = `
-    <html>
-      <head>
-        <meta charset="UTF-8" />
-        <style>
-          table { border-collapse: collapse; font-family: 'Malgun Gothic', Arial, sans-serif; font-size: 11pt; }
-          th { background: #f3f5f8; font-weight: 700; }
-          th, td { border: 1px solid #d5dce8; padding: 6px 8px; text-align: left; white-space: nowrap; }
-          caption { padding: 8px 0 10px; font-weight: 700; text-align: left; }
-        </style>
-      </head>
-      <body>
-        <table>
-          <caption>${escapeHtml(selectedTest.name)} / ${escapeHtml(selectedSpecimen.key)} Unacceptable 기관 목록</caption>
-          <thead><tr>${headerCells}</tr></thead>
-          <tbody>${bodyRows}</tbody>
-        </table>
-      </body>
-    </html>
-  `;
-
-  const blob = new Blob(["\ufeff", html], {
-    type: "application/vnd.ms-excel;charset=utf-8",
-  });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `${safeFileName}.xls`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-}
-
-function downloadStatisticsExcel({ rows, scopeLabel, sortConfig }) {
-  const safeDate = new Date().toISOString().slice(0, 10);
-  const safeFileName = `검체별_기본통계_${safeDate}`.replace(
-    /[\\/:*?"<>|]/g,
-    "_",
-  );
-  const sortColumn = statisticsColumns.find(
-    (column) => column.key === sortConfig.key,
-  );
-  const sortText = sortColumn
-    ? `${sortColumn.label} ${sortConfig.direction === "asc" ? "오름차순" : "내림차순"}`
-    : "정렬 없음";
-
-  const headerCells = statisticsColumns
-    .map((column) => `<th>${escapeHtml(column.label)}</th>`)
-    .join("");
-  const bodyRows = rows
-    .map(
-      (row) =>
-        `<tr>${statisticsColumns
-          .map((column) => {
-            const value = row[column.key];
-            const isEmpty =
-              value === null || value === undefined || value === "";
-            const cellValue = isEmpty ? "-" : formatStatisticValue(row, column);
-            const cellStyle =
-              column.type === "number" && !isEmpty
-                ? `mso-number-format:'${column.key === "n" ? "#,##0" : "0.00"}'; text-align:right;`
-                : "mso-number-format:'\\@';";
-
-            return `<td style="${cellStyle}">${escapeHtml(cellValue)}</td>`;
-          })
-          .join("")}</tr>`,
-    )
-    .join("");
-
-  const html = `
-    <html>
-      <head>
-        <meta charset="UTF-8" />
-        <style>
-          table { border-collapse: collapse; font-family: 'Malgun Gothic', Arial, sans-serif; font-size: 11pt; }
-          th { background: #eef2f7; color: #151b2f; font-weight: 700; }
-          th, td { border: 1px solid #d5dce8; padding: 6px 8px; text-align: left; white-space: nowrap; }
-          caption { padding: 8px 0 10px; font-weight: 700; text-align: left; }
-          .meta td { background: #f9fafc; color: #556174; font-weight: 700; }
-        </style>
-      </head>
-      <body>
-        <table>
-          <caption>검체별 기본통계</caption>
-          <tbody class="meta">
-            <tr><td>통계 범위</td><td>${escapeHtml(scopeLabel)}</td></tr>
-            <tr><td>정렬</td><td>${escapeHtml(sortText)}</td></tr>
-            <tr><td>다운로드 row 수</td><td>${rows.length.toLocaleString()}</td></tr>
-          </tbody>
-        </table>
-        <br />
-        <table>
-          <thead><tr>${headerCells}</tr></thead>
-          <tbody>${bodyRows}</tbody>
-        </table>
-      </body>
-    </html>
-  `;
-
-  const blob = new Blob(["\ufeff", html], {
-    type: "application/vnd.ms-excel;charset=utf-8",
-  });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `${safeFileName}.xls`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
 }
 
 function getMakerData(selection) {
@@ -1235,6 +979,20 @@ function getNonconformanceInstitutionRows(testIndex, specimenIndex) {
       specimenKey: selectedSpecimen.key,
     };
   });
+}
+
+function escapeHtml(value) {
+  return String(value).replace(
+    /[&<>"']/g,
+    (char) =>
+      ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      })[char],
+  );
 }
 
 function renderDoughnutTooltip(context, makers) {
@@ -1693,41 +1451,19 @@ function TrendLineChart({ selection }) {
 
 function SelectedTestDetail({ selection }) {
   const [showInstitutionGrid, setShowInstitutionGrid] = useState(false);
-  const [institutionPage, setInstitutionPage] = useState(1);
   const selectedTest = unacceptableRateData.tests[selection.testIndex];
   const selectedSpecimen =
     unacceptableRateData.specimens[selection.specimenIndex];
   const makers = getMakerData(selection);
   const total = makers.reduce((sum, maker) => sum + maker.count, 0);
   const selectedInstitutionRows = getInstitutionRowsForMakers(makers);
-  const institutionTotalPages = Math.max(
-    1,
-    Math.ceil(selectedInstitutionRows.length / institutionPageSize),
-  );
-  const institutionStartIndex = (institutionPage - 1) * institutionPageSize;
-  const visibleInstitutionRows = selectedInstitutionRows.slice(
-    institutionStartIndex,
-    institutionStartIndex + institutionPageSize,
-  );
-  const institutionEndIndex = Math.min(
-    institutionStartIndex + visibleInstitutionRows.length,
-    selectedInstitutionRows.length,
-  );
 
   useEffect(() => {
     setShowInstitutionGrid(false);
-    setInstitutionPage(1);
   }, [selection.testIndex, selection.specimenIndex]);
 
   const toggleInstitutionGrid = () => {
-    if (!showInstitutionGrid) {
-      setInstitutionPage(1);
-    }
     setShowInstitutionGrid((current) => !current);
-  };
-
-  const moveInstitutionPage = (nextPage) => {
-    setInstitutionPage(Math.min(institutionTotalPages, Math.max(1, nextPage)));
   };
 
   return (
@@ -1784,93 +1520,24 @@ function SelectedTestDetail({ selection }) {
           <div className="institution-list-head">
             <h4>Unacceptable 기관 목록</h4>
             <div className="institution-list-actions">
-              <span>
-                전체 {selectedInstitutionRows.length}개 중{" "}
-                {institutionStartIndex + 1}-{institutionEndIndex} 표시
-              </span>
-              <button
-                type="button"
-                className="excel-button"
-                onClick={() =>
-                  downloadInstitutionExcel({
-                    selectedTest,
-                    selectedSpecimen,
-                    rows: selectedInstitutionRows,
-                  })
-                }
-              >
-                엑셀 다운로드
-              </button>
+              <span>전체 {selectedInstitutionRows.length}개 기관</span>
             </div>
           </div>
-          <div
-            className="institution-grid"
-            role="grid"
+          <AckDataGrid
+            className="institution-data-grid"
+            data={withRowNo(selectedInstitutionRows)}
+            columns={toInstitutionGridColumns(institutionColumns)}
+            getRowId={(row, index) =>
+              `${row.code ?? ""}-${row.instrument ?? ""}-${index}`
+            }
+            paginationMode="pagination"
+            pageSize={institutionPageSize}
+            density="compact"
+            stickyHeader
+            enableExcelExport
+            excelFileName={`${selectedTest.code}_${selectedSpecimen.key}_기관목록.xlsx`}
             aria-label="Unacceptable 기관 목록"
-          >
-            <div
-              className="institution-grid-row institution-grid-header"
-              role="row"
-            >
-              {institutionColumns.map((column) => (
-                <span role="columnheader" key={column.key}>
-                  {column.label}
-                </span>
-              ))}
-            </div>
-            {visibleInstitutionRows.map((row, index) => (
-              <div
-                className="institution-grid-row"
-                role="row"
-                key={`${row.code}-${row.instrument}`}
-              >
-                {institutionColumns.map((column) => (
-                  <span role="gridcell" key={column.key}>
-                    {column.key === "no"
-                      ? institutionStartIndex + index + 1
-                      : row[column.key]}
-                  </span>
-                ))}
-              </div>
-            ))}
-          </div>
-          <div className="institution-pagination" aria-label="기관 목록 페이지">
-            <button
-              type="button"
-              aria-label="이전 페이지"
-              disabled={institutionPage === 1}
-              onClick={() => moveInstitutionPage(institutionPage - 1)}
-            >
-              ‹
-            </button>
-            {Array.from({ length: institutionTotalPages }, (_, index) => {
-              const pageNumber = index + 1;
-              return (
-                <button
-                  type="button"
-                  className={
-                    pageNumber === institutionPage ? "active" : undefined
-                  }
-                  aria-current={
-                    pageNumber === institutionPage ? "page" : undefined
-                  }
-                  key={pageNumber}
-                  onClick={() => moveInstitutionPage(pageNumber)}
-                >
-                  {pageNumber}
-                </button>
-              );
-            })}
-            <button
-              type="button"
-              aria-label="다음 페이지"
-              disabled={institutionPage === institutionTotalPages}
-              onClick={() => moveInstitutionPage(institutionPage + 1)}
-            >
-              ›
-            </button>
-            <span>10개씩 보기</span>
-          </div>
+          />
         </div>
       )}
     </>
@@ -1884,90 +1551,6 @@ function NonconformanceInstitutionGrid({
   onClose,
   columns = nonconformanceInstitutionColumns,
 }) {
-  const [gridTooltip, setGridTooltip] = useState(null);
-  const [institutionPage, setInstitutionPage] = useState(1);
-  const hasAnswerColumn = columns.some((column) => column.key === "answer");
-  const showsOnlyResultAndAnswer =
-    hasAnswerColumn &&
-    columns.length === urineSedimentNonconformanceInstitutionColumns.length;
-  const rowClassName = `institution-grid-row${
-    hasAnswerColumn ? " has-answer-column" : ""
-  }${showsOnlyResultAndAnswer ? " sediment-result-grid" : ""}`;
-  const institutionTotalPages = Math.max(
-    1,
-    Math.ceil(rows.length / institutionPageSize),
-  );
-  const normalizedInstitutionPage = Math.min(
-    institutionPage,
-    institutionTotalPages,
-  );
-  const institutionStartIndex =
-    (normalizedInstitutionPage - 1) * institutionPageSize;
-  const visibleRows = rows.slice(
-    institutionStartIndex,
-    institutionStartIndex + institutionPageSize,
-  );
-
-  useEffect(() => {
-    setInstitutionPage(1);
-    setGridTooltip(null);
-  }, [rows, selectedTest.code, selectedSpecimen.key]);
-
-  const moveInstitutionPage = (nextPage) => {
-    setInstitutionPage(
-      Math.min(Math.max(nextPage, 1), institutionTotalPages),
-    );
-    setGridTooltip(null);
-  };
-
-  const hideGridTooltip = () => {
-    setGridTooltip(null);
-  };
-
-  const showGridTooltip = (event, value) => {
-    const text = String(value ?? "");
-
-    if (!text) {
-      setGridTooltip(null);
-      return;
-    }
-
-    const rect = event.currentTarget.getBoundingClientRect();
-    const hasRoomAbove = rect.top > 90;
-    const left = Math.min(
-      Math.max(rect.left + rect.width / 2, 20),
-      window.innerWidth - 20,
-    );
-    const top = hasRoomAbove ? rect.top - 8 : rect.bottom + 8;
-
-    setGridTooltip({
-      text,
-      left,
-      top,
-      placement: hasRoomAbove ? "above" : "below",
-    });
-  };
-
-  const renderGridCell = (value, key) => {
-    const text = String(value ?? "");
-
-    return (
-      <span
-        key={key}
-        className={`institution-grid-cell institution-grid-cell-${key}`}
-        role="gridcell"
-        title={text}
-        tabIndex={text ? 0 : undefined}
-        onMouseEnter={(event) => showGridTooltip(event, text)}
-        onMouseLeave={hideGridTooltip}
-        onFocus={(event) => showGridTooltip(event, text)}
-        onBlur={hideGridTooltip}
-      >
-        {text}
-      </span>
-    );
-  };
-
   return (
     <div className="nonconformance-list" id="nonconformance-institution-list">
       <div className="institution-list-head">
@@ -1976,120 +1559,24 @@ function NonconformanceInstitutionGrid({
         </h4>
         <div className="institution-list-actions">
           <span>전체 {rows.length}개 기관</span>
-          <button type="button" className="excel-button" onClick={onClose}>
+          <AckButton variant="secondary" size="small" onClick={onClose}>
             닫기
-          </button>
+          </AckButton>
         </div>
       </div>
-      <div
-        className="institution-grid"
-        role="grid"
+      <AckDataGrid
+        className="institution-data-grid"
+        data={withRowNo(rows)}
+        columns={toInstitutionGridColumns(columns)}
+        getRowId={(row, index) =>
+          `${row.code ?? ""}-${row.instrument ?? ""}-${index}`
+        }
+        paginationMode="pagination"
+        pageSize={institutionPageSize}
+        density="compact"
+        stickyHeader
         aria-label="부적합 분석 Unacceptable 기관 목록"
-        onScroll={hideGridTooltip}
-      >
-        <div className={`${rowClassName} institution-grid-header`} role="row">
-          {columns.map((column) => {
-            const description = institutionColumnDescriptions[column.key];
-
-            return (
-              <span
-                role="columnheader"
-                key={column.key}
-                title={description}
-                tabIndex={description ? 0 : undefined}
-                onMouseEnter={(event) => showGridTooltip(event, description)}
-                onMouseLeave={hideGridTooltip}
-                onFocus={(event) => showGridTooltip(event, description)}
-                onBlur={hideGridTooltip}
-              >
-                {column.label}
-                {description && (
-                  <i className="column-indicator" aria-hidden="true">
-                    i
-                  </i>
-                )}
-              </span>
-            );
-          })}
-        </div>
-        {visibleRows.map((row, index) => (
-          <div
-            className={rowClassName}
-            role="row"
-            key={`${row.code}-${row.specimenKey ?? row.specimen ?? selectedSpecimen.key}-${institutionStartIndex + index}`}
-          >
-            {columns.map((column) =>
-              renderGridCell(
-                column.key === "no"
-                  ? institutionStartIndex + index + 1
-                  : row[column.key],
-                column.key,
-              ),
-            )}
-          </div>
-        ))}
-      </div>
-      {rows.length > institutionPageSize && (
-        <div className="institution-pagination" aria-label="기관 목록 페이지">
-          <button
-            type="button"
-            aria-label="이전 페이지"
-            disabled={normalizedInstitutionPage === 1}
-            onClick={() => moveInstitutionPage(normalizedInstitutionPage - 1)}
-          >
-            ‹
-          </button>
-          {Array.from({ length: institutionTotalPages }, (_, index) => {
-            const pageNumber = index + 1;
-
-            return (
-              <button
-                type="button"
-                className={
-                  pageNumber === normalizedInstitutionPage ? "active" : undefined
-                }
-                aria-current={
-                  pageNumber === normalizedInstitutionPage ? "page" : undefined
-                }
-                key={pageNumber}
-                onClick={() => moveInstitutionPage(pageNumber)}
-              >
-                {pageNumber}
-              </button>
-            );
-          })}
-          <button
-            type="button"
-            aria-label="다음 페이지"
-            disabled={normalizedInstitutionPage === institutionTotalPages}
-            onClick={() => moveInstitutionPage(normalizedInstitutionPage + 1)}
-          >
-            ›
-          </button>
-          <span>
-            전체 {rows.length.toLocaleString()}개 중{" "}
-            {institutionStartIndex + 1}-
-            {Math.min(
-              institutionStartIndex + institutionPageSize,
-              rows.length,
-            ).toLocaleString()} 표시
-          </span>
-        </div>
-      )}
-      {gridTooltip && (
-        <div
-          className={`grid-cell-tooltip ${
-            gridTooltip.placement === "below" ? "is-below" : ""
-          }`}
-          role="tooltip"
-          style={{
-            left: `${gridTooltip.left}px`,
-            top: `${gridTooltip.top}px`,
-          }}
-        >
-          {gridTooltip.text}
-        </div>
-      )}
+      />
     </div>
   );
 }
@@ -2181,7 +1668,7 @@ function NonconformanceSdiChart({ selectedTestIndex, onSelectTest }) {
             ticks: {
               color(context) {
                 return context.index === selectedTestIndex
-                  ? "#a00056"
+                  ? "#b32572"
                   : "#1f2d4d";
               },
               font(context) {
@@ -2529,12 +2016,6 @@ function getQualitativeJudgmentClass(value) {
     : "is-acceptable";
 }
 
-function getQualitativeComparisonClass(value) {
-  return String(value).toLowerCase() === "different"
-    ? "is-different"
-    : "is-same";
-}
-
 function QualitativeAnswerCell({ value }) {
   const cellValue = formatQualitativeValue(value);
 
@@ -2570,375 +2051,131 @@ function QualitativeJudgmentCell({ value }) {
   );
 }
 
-function formatQualitativeDisplayValue(row, column) {
-  const value = row[column.key];
-
-  if (column.key === "결과선택기관수_비율") return formatQualitativeRate(value);
-  if (
-    column.key === "결과선택기관수_전체" ||
-    column.key === "결과선택기관수_선택"
-  ) {
-    return formatQualitativeCount(value);
-  }
-  if (column.cellType === "remark") return formatQualitativeValue(value) || "-";
-
-  return formatQualitativeValue(value);
-}
-
-function createDefaultQualitativeFilters() {
-  return Object.fromEntries(
-    qualitativeColumns.map((column) => [
-      column.key,
+const qualitativeGridColumns = [
+  {
+    field: "프로그램명",
+    headerName: "프로그램명",
+    width: 74,
+    filter: "checklist",
+    sortable: true,
+    tooltip: "overflow",
+  },
+  {
+    field: "상위검사명",
+    headerName: "상위검사명",
+    width: 90,
+    filter: "checklist",
+    sortable: true,
+    tooltip: "overflow",
+  },
+  {
+    field: "검사명",
+    headerName: "검사명",
+    width: 80,
+    filter: "checklist",
+    sortable: true,
+    tooltip: "overflow",
+  },
+  {
+    field: "검체명",
+    headerName: "검체명",
+    width: 82,
+    filter: "checklist",
+    sortable: true,
+    tooltip: "overflow",
+  },
+  {
+    field: "기준분류",
+    headerName: "기준분류",
+    width: 132,
+    filter: "checklist",
+    sortable: true,
+    tooltip: "overflow",
+  },
+  {
+    field: "보고된 결과",
+    headerName: "보고된 결과",
+    width: 74,
+    align: "right",
+    filter: "checklist",
+    sortable: true,
+  },
+  {
+    headerName: "결과선택기관수",
+    children: [
       {
-        search: "",
-        operator: "",
-        compareValue: "",
+        field: "결과선택기관수_전체",
+        headerName: "전체",
+        width: 56,
+        align: "right",
+        sortable: true,
+        comparator: numCmp,
+        cellRenderer: ({ row }) =>
+          formatQualitativeCount(row["결과선택기관수_전체"]),
       },
-    ]),
-  );
-}
-
-function rowMatchesQualitativeFilters(row, filters, appliedComparisons) {
-  return qualitativeColumns.every((column) => {
-    const filter = filters[column.key] ?? {};
-    const comparisonFilter = appliedComparisons[column.key] ?? {};
-    const rawValue = row[column.key];
-    const displayValue = formatQualitativeDisplayValue(row, column);
-    const searchValue = filter.search.trim().toLowerCase();
-
-    if (
-      searchValue &&
-      !String(displayValue).toLowerCase().includes(searchValue)
-    ) {
-      return false;
-    }
-
-    if (
-      !comparisonFilter.operator ||
-      !String(comparisonFilter.compareValue).trim()
-    ) {
-      return true;
-    }
-
-    if (column.type === "number") {
-      return compareNumberValue(
-        rawValue,
-        comparisonFilter.operator,
-        comparisonFilter.compareValue,
-      );
-    }
-
-    return compareTextValue(
-      displayValue,
-      comparisonFilter.operator,
-      comparisonFilter.compareValue,
-    );
-  });
-}
-
-function sortQualitativeRows(rows, sortConfig) {
-  if (!sortConfig.key) return rows;
-
-  const column = qualitativeColumns.find(
-    (qualitativeColumn) => qualitativeColumn.key === sortConfig.key,
-  );
-  if (!column) return rows;
-
-  return rows
-    .map((row, index) => ({ row, index }))
-    .sort((left, right) => {
-      const leftRawValue = left.row[column.key];
-      const rightRawValue = right.row[column.key];
-      const leftValue = formatQualitativeDisplayValue(left.row, column);
-      const rightValue = formatQualitativeDisplayValue(right.row, column);
-      const leftIsEmpty =
-        leftRawValue === null || leftRawValue === undefined || leftRawValue === "";
-      const rightIsEmpty =
-        rightRawValue === null ||
-        rightRawValue === undefined ||
-        rightRawValue === "";
-
-      if (leftIsEmpty && rightIsEmpty) return left.index - right.index;
-      if (leftIsEmpty) return 1;
-      if (rightIsEmpty) return -1;
-
-      let comparison;
-
-      if (column.type === "number") {
-        comparison =
-          parseStatisticNumber(leftRawValue) - parseStatisticNumber(rightRawValue);
-      } else {
-        comparison = String(leftValue).localeCompare(String(rightValue), "ko", {
-          numeric: true,
-          sensitivity: "base",
-        });
-      }
-
-      if (comparison === 0) return left.index - right.index;
-      return sortConfig.direction === "asc" ? comparison : -comparison;
-    })
-    .map(({ row }) => row);
-}
-
-function downloadQualitativeExcel({ rows, sortConfig }) {
-  const safeDate = new Date().toISOString().slice(0, 10);
-  const safeFileName = `정성_판정_${safeDate}`.replace(
-    /[\\/:*?"<>|]/g,
-    "_",
-  );
-  const sortColumn = qualitativeColumns.find(
-    (column) => column.key === sortConfig.key,
-  );
-  const sortText = sortColumn
-    ? `${sortColumn.label} ${sortConfig.direction === "asc" ? "오름차순" : "내림차순"}`
-    : "정렬 없음";
-  const headerCells = qualitativeColumns
-    .map((column) => `<th>${escapeHtml(column.label)}</th>`)
-    .join("");
-  const bodyRows = rows
-    .map(
-      (row) =>
-        `<tr>${qualitativeColumns
-          .map((column) => {
-            const cellValue = formatQualitativeDisplayValue(row, column);
-            const cellStyle =
-              column.type === "number"
-                ? "mso-number-format:'0.00'; text-align:right;"
-                : "mso-number-format:'\\@';";
-
-            return `<td style="${cellStyle}">${escapeHtml(cellValue)}</td>`;
-          })
-          .join("")}</tr>`,
-    )
-    .join("");
-
-  const html = `
-    <html>
-      <head>
-        <meta charset="UTF-8" />
-        <style>
-          table { border-collapse: collapse; font-family: 'Malgun Gothic', Arial, sans-serif; font-size: 11pt; }
-          th { background: #eef2f7; color: #151b2f; font-weight: 700; }
-          th, td { border: 1px solid #d5dce8; padding: 6px 8px; text-align: left; white-space: nowrap; }
-          caption { padding: 8px 0 10px; font-weight: 700; text-align: left; }
-          .meta td { background: #f9fafc; color: #556174; font-weight: 700; }
-        </style>
-      </head>
-      <body>
-        <table>
-          <caption>검사항목별 정성 판정</caption>
-          <tbody class="meta">
-            <tr><td>정렬</td><td>${escapeHtml(sortText)}</td></tr>
-            <tr><td>다운로드 row 수</td><td>${rows.length.toLocaleString()}</td></tr>
-          </tbody>
-        </table>
-        <br />
-        <table>
-          <thead><tr>${headerCells}</tr></thead>
-          <tbody>${bodyRows}</tbody>
-        </table>
-      </body>
-    </html>
-  `;
-
-  const blob = new Blob(["\ufeff", html], {
-    type: "application/vnd.ms-excel;charset=utf-8",
-  });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `${safeFileName}.xls`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-}
+      {
+        field: "결과선택기관수_선택",
+        headerName: "선택",
+        width: 56,
+        align: "right",
+        sortable: true,
+        comparator: numCmp,
+        cellRenderer: ({ row }) =>
+          formatQualitativeCount(row["결과선택기관수_선택"]),
+      },
+      {
+        field: "결과선택기관수_비율",
+        headerName: "비율",
+        width: 62,
+        align: "right",
+        sortable: true,
+        comparator: numCmp,
+        cellRenderer: ({ row }) =>
+          formatQualitativeRate(row["결과선택기관수_비율"]),
+      },
+    ],
+  },
+  {
+    headerName: "운영자 정답(INTENDED)",
+    children: [
+      {
+        field: "운영자 정답(INTENDED)",
+        headerName: "운영자 정답",
+        width: 158,
+        filter: "checklist",
+        sortable: true,
+        tooltip: "overflow",
+        cellRenderer: ({ row }) => (
+          <QualitativeAnswerCell value={row["운영자 정답(INTENDED)"]} />
+        ),
+      },
+      {
+        field: "운영자 Remark",
+        headerName: "운영자 Remark",
+        width: 86,
+        filter: "checklist",
+        sortable: true,
+        tooltip: "overflow",
+        cellRenderer: ({ row }) => (
+          <QualitativeRemarkCell value={row["운영자 Remark"]} />
+        ),
+      },
+      {
+        field: "운영자 판정",
+        headerName: "운영자 판정",
+        width: 92,
+        filter: "checklist",
+        sortable: true,
+        cellRenderer: ({ row }) => (
+          <QualitativeJudgmentCell value={row["운영자 판정"]} />
+        ),
+      },
+    ],
+  },
+];
 
 function UrineQualitativeStatistics({ rows }) {
   const sourceRows = rows ?? [];
-  const [filters, setFilters] = useState(createDefaultQualitativeFilters);
-  const [appliedComparisons, setAppliedComparisons] = useState(
-    createDefaultQualitativeFilters,
-  );
-  const [sortConfig, setSortConfig] = useState({ key: "", direction: "asc" });
-  const filteredRows = sourceRows.filter((row) =>
-    rowMatchesQualitativeFilters(row, filters, appliedComparisons),
-  );
-  const sortedRows = sortQualitativeRows(filteredRows, sortConfig);
-  const hasActiveSort = Boolean(sortConfig.key);
-  const hasActiveFilters = qualitativeColumns.some((column) => {
-    const filter = filters[column.key];
-    const comparisonFilter = appliedComparisons[column.key];
-
-    return (
-      filter.search ||
-      comparisonFilter.operator ||
-      comparisonFilter.compareValue
-    );
-  });
-  const hasPendingComparisons = qualitativeColumns.some((column) => {
-    const filter = filters[column.key];
-    const comparisonFilter = appliedComparisons[column.key];
-
-    return (
-      filter.operator !== comparisonFilter.operator ||
-      filter.compareValue !== comparisonFilter.compareValue
-    );
-  });
-
-  const updateFilter = (columnKey, nextValue) => {
-    setFilters((currentFilters) => ({
-      ...currentFilters,
-      [columnKey]: {
-        ...currentFilters[columnKey],
-        ...nextValue,
-      },
-    }));
-  };
-
-  const applyComparisonFilters = () => {
-    setAppliedComparisons(
-      Object.fromEntries(
-        qualitativeColumns.map((column) => [
-          column.key,
-          {
-            search: "",
-            operator: filters[column.key].operator,
-            compareValue: filters[column.key].compareValue,
-          },
-        ]),
-      ),
-    );
-  };
-
-  const updateSort = (columnKey) => {
-    setSortConfig((currentSort) => {
-      if (currentSort.key !== columnKey) {
-        return { key: columnKey, direction: "asc" };
-      }
-
-      return {
-        key: columnKey,
-        direction: currentSort.direction === "asc" ? "desc" : "asc",
-      };
-    });
-  };
-
-  const resetSort = () => {
-    setSortConfig({ key: "", direction: "asc" });
-  };
-
-  const resetFilters = () => {
-    setFilters(createDefaultQualitativeFilters());
-    setAppliedComparisons(createDefaultQualitativeFilters());
-  };
-
-  const renderSortHeader = (column, headerClassName, extraProps = {}) => {
-    const isSorted = sortConfig.key === column.key;
-    const sortLabel = isSorted
-      ? sortConfig.direction === "asc"
-        ? "오름차순"
-        : "내림차순"
-      : "정렬 없음";
-
-    return (
-      <th
-        className={`${headerClassName} ${column.className}${
-          isSorted ? " is-sorted" : ""
-        }`}
-        title={column.label}
-        key={column.key}
-        {...extraProps}
-      >
-        <button
-          type="button"
-          className="statistics-sort-button"
-          title={column.label}
-          aria-label={`${column.label} ${sortLabel}. 클릭하여 정렬`}
-          onClick={() => updateSort(column.key)}
-        >
-          <span>{column.label}</span>
-          <i aria-hidden="true">
-            {isSorted ? (sortConfig.direction === "asc" ? "▲" : "▼") : "↕"}
-          </i>
-        </button>
-      </th>
-    );
-  };
-
-  const renderFilterCell = (column) => {
-    const filter = filters[column.key];
-    const operators =
-      column.type === "number" ? numericCompareOperators : textCompareOperators;
-
-    return (
-      <th className={column.className} key={`${column.key}-filter`}>
-        <div className="statistics-filter">
-          <input
-            type="search"
-            value={filter.search}
-            placeholder="검색"
-            aria-label={`${column.label} 검색`}
-            onChange={(event) =>
-              updateFilter(column.key, {
-                search: event.target.value,
-              })
-            }
-          />
-          <div className="statistics-compare">
-            <select
-              value={filter.operator}
-              aria-label={`${column.label} 비교 조건`}
-              onChange={(event) =>
-                updateFilter(column.key, {
-                  operator: event.target.value,
-                })
-              }
-            >
-              {operators.map((operator) => (
-                <option value={operator.value} key={operator.value}>
-                  {operator.label}
-                </option>
-              ))}
-            </select>
-            <input
-              type={column.type === "number" ? "number" : "text"}
-              value={filter.compareValue}
-              placeholder="값"
-              aria-label={`${column.label} 비교 값`}
-              onChange={(event) =>
-                updateFilter(column.key, {
-                  compareValue: event.target.value,
-                })
-              }
-            />
-          </div>
-        </div>
-      </th>
-    );
-  };
-
-  const renderBodyCell = (row, column) => {
-    const cellValue = formatQualitativeDisplayValue(row, column);
-    const className =
-      column.cellType === "comparison"
-        ? `${column.className} ${getQualitativeComparisonClass(cellValue)}`
-        : column.className;
-
-    return (
-      <td className={className} title={cellValue} key={column.key}>
-        {column.cellType === "answer" ? (
-          <QualitativeAnswerCell value={row[column.key]} />
-        ) : column.cellType === "remark" ? (
-          <QualitativeRemarkCell value={row[column.key]} />
-        ) : column.cellType === "judgment" ? (
-          <QualitativeJudgmentCell value={row[column.key]} />
-        ) : (
-          cellValue
-        )}
-      </td>
-    );
-  };
 
   return (
     <section className="statistics-view qualitative-statistics-view">
@@ -2949,114 +2186,26 @@ function UrineQualitativeStatistics({ rows }) {
             <p>운영자 정답 및 판정 결과를 한 화면에서 확인합니다</p>
           </div>
           <div className="statistics-actions">
-            <span>
-              전체 {sourceRows.length.toLocaleString()}건 / 표시{" "}
-              {filteredRows.length.toLocaleString()}건
-            </span>
-            {hasPendingComparisons && <em>비교 조건 미적용</em>}
-            <button
-              type="button"
-              className="primary"
-              disabled={!hasPendingComparisons}
-              onClick={applyComparisonFilters}
-            >
-              비교 실행
-            </button>
-            <button
-              type="button"
-              disabled={!hasActiveFilters}
-              onClick={resetFilters}
-            >
-              필터 초기화
-            </button>
-            <button type="button" disabled={!hasActiveSort} onClick={resetSort}>
-              정렬 초기화
-            </button>
-            <button
-              type="button"
-              disabled={sortedRows.length === 0}
-              onClick={() =>
-                downloadQualitativeExcel({
-                  rows: sortedRows,
-                  sortConfig,
-                })
-              }
-            >
-              엑셀 다운로드
-            </button>
+            <span>전체 {sourceRows.length.toLocaleString()}건</span>
           </div>
         </div>
 
-        <div className="qualitative-table-wrap">
-          <table
-            className="qualitative-table"
-            aria-label="소변검사 정성 판정"
-            style={{
-              "--qualitative-table-width": `${qualitativeTableWidth}px`,
-            }}
-          >
-            <colgroup>
-              {qualitativeColumns.map((column) => (
-                <col
-                  className={column.className}
-                  style={{ width: `${column.width}px` }}
-                  key={column.key}
-                />
-              ))}
-            </colgroup>
-            <thead>
-              <tr>
-                {qualitativeBaseColumns.map((column) =>
-                  renderSortHeader(column, "qualitative-header-base", {
-                    rowSpan: 2,
-                  }),
-                )}
-                <th
-                  className="qualitative-header-base col-selection-group"
-                  colSpan={qualitativeSelectionColumns.length}
-                >
-                  결과선택기관수
-                </th>
-                <th
-                  className="qualitative-header-operator"
-                  colSpan={qualitativeOperatorColumns.length}
-                >
-                  운영자 정답(INTENDED)
-                </th>
-              </tr>
-              <tr>
-                {qualitativeSelectionColumns.map((column) =>
-                  renderSortHeader(column, "qualitative-header-base"),
-                )}
-                {qualitativeOperatorColumns.map((column) =>
-                  renderSortHeader(column, "qualitative-header-operator"),
-                )}
-              </tr>
-              <tr className="statistics-filter-row qualitative-filter-row">
-                {qualitativeColumns.map(renderFilterCell)}
-              </tr>
-            </thead>
-            <tbody>
-              {sortedRows.length > 0 ? (
-                sortedRows.map((row, index) => (
-                  <tr
-                    key={`${row["검사명"]}-${row["검체명"]}-${row["기준분류"]}-${row["보고된 결과"]}-${index}`}
-                  >
-                    {qualitativeColumns.map((column) =>
-                      renderBodyCell(row, column),
-                    )}
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td className="statistics-empty" colSpan={qualitativeColumns.length}>
-                    조건에 맞는 정성 통계 데이터가 없습니다
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        <AckDataGrid
+          data={sourceRows}
+          columns={qualitativeGridColumns}
+          getRowId={(row, index) =>
+            `${row["검사명"]}-${row["검체명"]}-${row["기준분류"]}-${row["보고된 결과"]}-${index}`
+          }
+          enableSorting
+          enableColumnFilters
+          paginationMode="pagination"
+          pageSize={50}
+          density="compact"
+          stickyHeader
+          enableExcelExport
+          excelFileName="검사항목별_정성판정.xlsx"
+          aria-label="소변검사 정성 판정"
+        />
       </article>
     </section>
   );
@@ -3064,11 +2213,6 @@ function UrineQualitativeStatistics({ rows }) {
 
 function StatisticsDetail({ rows: providedRows } = {}) {
   const [statisticsScope, setStatisticsScope] = useState("all");
-  const [filters, setFilters] = useState(createDefaultStatisticsFilters);
-  const [appliedComparisons, setAppliedComparisons] = useState(
-    createDefaultStatisticsFilters,
-  );
-  const [sortConfig, setSortConfig] = useState({ key: "", direction: "asc" });
   const rows = providedRows ?? getStatisticsRows();
   const scopeCounts = Object.fromEntries(
     statisticsScopeOptions.map((option) => [
@@ -3080,82 +2224,6 @@ function StatisticsDetail({ rows: providedRows } = {}) {
   const scopedRows = rows.filter((row) =>
     rowMatchesStatisticsScope(row, statisticsScope),
   );
-  const filteredRows = scopedRows.filter((row) =>
-    rowMatchesStatisticsFilters(row, filters, appliedComparisons),
-  );
-  const sortedRows = sortStatisticsRows(filteredRows, sortConfig);
-  const hasActiveSort = Boolean(sortConfig.key);
-  const activeScopeLabel =
-    statisticsScopeOptions.find((option) => option.value === statisticsScope)
-      ?.label ?? "전체";
-  const hasActiveFilters =
-    statisticsScope !== "all" ||
-    statisticsColumns.some((column) => {
-      const filter = filters[column.key];
-      const comparisonFilter = appliedComparisons[column.key];
-      return (
-        filter.search ||
-        comparisonFilter.operator ||
-        comparisonFilter.compareValue
-      );
-    });
-  const hasPendingComparisons = statisticsColumns.some((column) => {
-    const filter = filters[column.key];
-    const comparisonFilter = appliedComparisons[column.key];
-
-    return (
-      filter.operator !== comparisonFilter.operator ||
-      filter.compareValue !== comparisonFilter.compareValue
-    );
-  });
-
-  const updateFilter = (columnKey, nextValue) => {
-    setFilters((currentFilters) => ({
-      ...currentFilters,
-      [columnKey]: {
-        ...currentFilters[columnKey],
-        ...nextValue,
-      },
-    }));
-  };
-
-  const applyComparisonFilters = () => {
-    setAppliedComparisons(
-      Object.fromEntries(
-        statisticsColumns.map((column) => [
-          column.key,
-          {
-            search: "",
-            operator: filters[column.key].operator,
-            compareValue: filters[column.key].compareValue,
-          },
-        ]),
-      ),
-    );
-  };
-
-  const updateSort = (columnKey) => {
-    setSortConfig((currentSort) => {
-      if (currentSort.key !== columnKey) {
-        return { key: columnKey, direction: "asc" };
-      }
-
-      return {
-        key: columnKey,
-        direction: currentSort.direction === "asc" ? "desc" : "asc",
-      };
-    });
-  };
-
-  const resetSort = () => {
-    setSortConfig({ key: "", direction: "asc" });
-  };
-
-  const resetFilters = () => {
-    setStatisticsScope("all");
-    setFilters(createDefaultStatisticsFilters());
-    setAppliedComparisons(createDefaultStatisticsFilters());
-  };
 
   return (
     <section className="statistics-view">
@@ -3164,48 +2232,15 @@ function StatisticsDetail({ rows: providedRows } = {}) {
           <div>
             <h3>검체별 기본통계</h3>
             <p>
-              컬럼별 검색과 비교 조건을 조합해 원하는 통계 row만 확인할 수
-              있습니다
+              컬럼 헤더 필터·정렬로 원하는 통계 row만 확인하고, 엑셀로 내려받을
+              수 있습니다
             </p>
           </div>
           <div className="statistics-actions">
             <span>
               전체 {rows.length.toLocaleString()}건 / 범위{" "}
-              {scopedRows.length.toLocaleString()}건 / 표시{" "}
-              {filteredRows.length.toLocaleString()}건
+              {scopedRows.length.toLocaleString()}건
             </span>
-            {hasPendingComparisons && <em>비교 조건 미적용</em>}
-            <button
-              type="button"
-              className="primary"
-              disabled={!hasPendingComparisons}
-              onClick={applyComparisonFilters}
-            >
-              비교 실행
-            </button>
-            <button
-              type="button"
-              disabled={!hasActiveFilters}
-              onClick={resetFilters}
-            >
-              필터 초기화
-            </button>
-            <button type="button" disabled={!hasActiveSort} onClick={resetSort}>
-              정렬 초기화
-            </button>
-            <button
-              type="button"
-              disabled={sortedRows.length === 0}
-              onClick={() =>
-                downloadStatisticsExcel({
-                  rows: sortedRows,
-                  scopeLabel: activeScopeLabel,
-                  sortConfig,
-                })
-              }
-            >
-              엑셀 다운로드
-            </button>
           </div>
         </div>
 
@@ -3223,130 +2258,21 @@ function StatisticsDetail({ rows: providedRows } = {}) {
           ))}
         </div>
 
-        <div className="statistics-table-wrap">
-          <table className="statistics-table">
-            <thead>
-              <tr>
-                {statisticsColumns.map((column) => {
-                  const isSorted = sortConfig.key === column.key;
-                  const sortLabel = isSorted
-                    ? sortConfig.direction === "asc"
-                      ? "오름차순"
-                      : "내림차순"
-                    : "정렬 없음";
-
-                  return (
-                    <th
-                      className={isSorted ? "is-sorted" : undefined}
-                      key={column.key}
-                    >
-                      <button
-                        type="button"
-                        className="statistics-sort-button"
-                        aria-label={`${column.label} ${sortLabel}. 클릭하여 정렬`}
-                        onClick={() => updateSort(column.key)}
-                      >
-                        <span>{column.label}</span>
-                        <i aria-hidden="true">
-                          {isSorted
-                            ? sortConfig.direction === "asc"
-                              ? "▲"
-                              : "▼"
-                            : "↕"}
-                        </i>
-                      </button>
-                    </th>
-                  );
-                })}
-              </tr>
-              <tr className="statistics-filter-row">
-                {statisticsColumns.map((column) => {
-                  const filter = filters[column.key];
-                  const operators =
-                    column.type === "number"
-                      ? numericCompareOperators
-                      : textCompareOperators;
-
-                  return (
-                    <th key={`${column.key}-filter`}>
-                      <div className="statistics-filter">
-                        <input
-                          type="search"
-                          value={filter.search}
-                          placeholder="검색"
-                          aria-label={`${column.label} 검색`}
-                          onChange={(event) =>
-                            updateFilter(column.key, {
-                              search: event.target.value,
-                            })
-                          }
-                        />
-                        <div className="statistics-compare">
-                          <select
-                            value={filter.operator}
-                            aria-label={`${column.label} 비교 조건`}
-                            onChange={(event) =>
-                              updateFilter(column.key, {
-                                operator: event.target.value,
-                              })
-                            }
-                          >
-                            {operators.map((operator) => (
-                              <option
-                                value={operator.value}
-                                key={operator.value}
-                              >
-                                {operator.label}
-                              </option>
-                            ))}
-                          </select>
-                          <input
-                            type={column.type === "number" ? "number" : "text"}
-                            value={filter.compareValue}
-                            placeholder="값"
-                            aria-label={`${column.label} 비교 값`}
-                            onChange={(event) =>
-                              updateFilter(column.key, {
-                                compareValue: event.target.value,
-                              })
-                            }
-                          />
-                        </div>
-                      </div>
-                    </th>
-                  );
-                })}
-              </tr>
-            </thead>
-            <tbody>
-              {sortedRows.length > 0 ? (
-                sortedRows.map((row) => (
-                  <tr key={row.id}>
-                    {statisticsColumns.map((column) => (
-                      <td
-                        className={
-                          column.type === "number" ? "number-cell" : undefined
-                        }
-                        key={column.key}
-                      >
-                        {formatStatisticValue(row, column)}
-                      </td>
-                    ))}
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td
-                    className="statistics-empty"
-                    colSpan={statisticsColumns.length}
-                  >
-                    조건에 맞는 데이터가 없습니다
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        <AckDataGrid
+          className="statistics-grid"
+          data={scopedRows}
+          columns={statisticsGridColumns}
+          getRowId={(row, index) => row.id ?? `stat-${index}`}
+          enableSorting
+          enableColumnFilters
+          paginationMode="pagination"
+          pageSize={50}
+          density="compact"
+          stickyHeader
+          enableExcelExport
+          excelFileName="검체별_기본통계.xlsx"
+          aria-label="검체별 기본통계"
+        />
       </article>
     </section>
   );
@@ -3392,6 +2318,87 @@ function formatTrendCount(value) {
   if (value === null || value === undefined || value === "") return "-";
   return `${Number(value).toLocaleString()}기관`;
 }
+
+// 추이 히트맵 셀 — 셀을 꽉 채우는 배경으로 rate 톤(high/warning/low/empty) 표현
+function TrendRateGridCell({ value, isCurrent }) {
+  const rate = value?.rate;
+  const tone = getTrendRateTone(rate);
+  const title =
+    rate === null || rate === undefined
+      ? "해당 회차 데이터 없음"
+      : `${value?.specimenName ? `${value.specimenName} / ` : ""}Unacceptable 기관수 ${Number(
+          value.unacceptableCount,
+        ).toLocaleString()} / 참여기관수 ${Number(
+          value.participatingCount,
+        ).toLocaleString()}`;
+
+  return (
+    <div
+      className={`trend-rate-cell is-${tone}${isCurrent ? " is-current" : ""}`}
+      title={title}
+    >
+      {formatTrendRate(rate)}
+    </div>
+  );
+}
+
+function TrendChangeGridCell({ value }) {
+  const tone = getTrendChangeTone(value);
+
+  return (
+    <div className={`trend-change-cell is-${tone}`}>
+      <span aria-hidden="true">{getTrendChangeIcon(tone)}</span>
+      {formatTrendChange(value)}
+    </div>
+  );
+}
+
+// 동적 기간 컬럼 + 검사항목(고정) + 추세. AckDataGrid용.
+function buildTrendGridColumns(periods, nameHeader) {
+  return [
+    {
+      field: "displayName",
+      headerName: nameHeader,
+      pinned: "left",
+      minWidth: 240,
+      sortable: true,
+      tooltip: "overflow",
+      cellRenderer: ({ row }) => (
+        <div className="trend-name-cell">{row.displayName}</div>
+      ),
+    },
+    ...periods.map((period, index) => ({
+      field: "code",
+      colId: `period-${index}`,
+      headerName: period.label,
+      align: "center",
+      headerAlign: "center",
+      minWidth: 96,
+      sortable: false,
+      cellRenderer: ({ row }) => (
+        <TrendRateGridCell
+          value={row.periodValues[index]}
+          isCurrent={period.isCurrent}
+        />
+      ),
+    })),
+    {
+      field: "trendValue",
+      colId: "trend",
+      headerName: "추세",
+      align: "center",
+      headerAlign: "center",
+      minWidth: 88,
+      sortable: false,
+      cellRenderer: ({ row }) => <TrendChangeGridCell value={row.trendValue} />,
+    },
+  ];
+}
+
+const chemistryTrendGridColumns = buildTrendGridColumns(
+  trendTableData.periods,
+  "검사항목",
+);
 
 function TrendAnalysisChart({ row }) {
   const canvasRef = useRef(null);
@@ -3545,7 +2552,7 @@ function TrendAnalysisChart({ row }) {
 }
 
 function TrendAnalysis() {
-  const { periods, rows } = trendTableData;
+  const { rows } = trendTableData;
   const [selectedCode, setSelectedCode] = useState(rows[0]?.code ?? "");
   const chartPanelRef = useRef(null);
   const selectedRow = rows.find((row) => row.code === selectedCode) ?? rows[0];
@@ -3568,83 +2575,19 @@ function TrendAnalysis() {
           <span>▲▼ = 직전 회차 대비 변화</span>
         </div>
 
-        <div className="trend-table-wrap">
-          <table className="trend-analysis-table">
-            <thead>
-              <tr>
-                <th scope="col">검사항목</th>
-                {periods.map((period) => (
-                  <th
-                    className={period.isCurrent ? "is-current" : undefined}
-                    key={period.key}
-                    scope="col"
-                  >
-                    {period.label}
-                  </th>
-                ))}
-                <th scope="col">추세</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => {
-                const changeTone = getTrendChangeTone(row.trendValue);
-                const isSelected = selectedRow?.code === row.code;
-
-                return (
-                  <tr
-                    className={isSelected ? "is-selected" : undefined}
-                    key={row.code}
-                    tabIndex={0}
-                    onClick={() => selectTrendRow(row.code)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        selectTrendRow(row.code);
-                      }
-                    }}
-                  >
-                    <th scope="row">{row.displayName}</th>
-                    {row.periodValues.map((value, index) => {
-                      const period = periods[index];
-                      const rateTone = getTrendRateTone(value.rate);
-                      const className = [
-                        "trend-rate-cell",
-                        `is-${rateTone}`,
-                        period?.isCurrent ? "is-current" : "",
-                      ]
-                        .filter(Boolean)
-                        .join(" ");
-                      const countTitle =
-                        value.rate === null
-                          ? "해당 회차 데이터 없음"
-                          : `Unacceptable 기관수 ${Number(
-                              value.unacceptableCount,
-                            ).toLocaleString()} / 검사시행 기관수 ${Number(
-                              value.participatingCount,
-                            ).toLocaleString()}`;
-
-                      return (
-                        <td
-                          className={className}
-                          key={`${row.code}-${value.periodKey}`}
-                          title={countTitle}
-                        >
-                          {formatTrendRate(value.rate)}
-                        </td>
-                      );
-                    })}
-                    <td className={`trend-change-cell is-${changeTone}`}>
-                      <span aria-hidden="true">
-                        {getTrendChangeIcon(changeTone)}
-                      </span>
-                      {formatTrendChange(row.trendValue)}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <AckDataGrid
+          className="trend-grid"
+          data={rows}
+          columns={chemistryTrendGridColumns}
+          getRowId={(row) => row.code}
+          getRowClass={(row) =>
+            row.code === selectedRow?.code ? "is-selected" : undefined
+          }
+          onRowClick={(row) => selectTrendRow(row.code)}
+          density="compact"
+          stickyHeader
+          aria-label="검체별 전체 검사항목 추이"
+        />
       </article>
 
       {selectedRow && (
@@ -3676,33 +2619,32 @@ function StatisticsConfirmModal({ dialogType, onConfirm, onCancel, onClose }) {
         : "정말로 통계확인하시겠습니까?";
 
   return (
-    <div className="modal-backdrop" role="presentation">
-      <div
-        className="statistics-confirm-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="statistics-confirm-title"
-      >
-        <h2 id="statistics-confirm-title">통계확인</h2>
-        <p>{message}</p>
-        <div className="statistics-confirm-actions">
-          {isConfirmDialog ? (
-            <>
-              <button type="button" className="primary" onClick={onConfirm}>
-                예
-              </button>
-              <button type="button" onClick={onCancel}>
-                아니오
-              </button>
-            </>
-          ) : (
-            <button type="button" className="primary" onClick={onClose}>
-              확인
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
+    <AckDialog
+      open
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
+      title="통계확인"
+      maxWidth="sm:max-w-[360px]"
+      footer={
+        isConfirmDialog ? (
+          <>
+            <AckButton variant="secondary" onClick={onCancel}>
+              아니오
+            </AckButton>
+            <AckButton variant="primary" onClick={onConfirm}>
+              예
+            </AckButton>
+          </>
+        ) : (
+          <AckButton variant="primary" onClick={onClose}>
+            확인
+          </AckButton>
+        )
+      }
+    >
+      <p className="statistics-confirm-message">{message}</p>
+    </AckDialog>
   );
 }
 
@@ -3712,9 +2654,9 @@ function AppHeader({ title }) {
       <h1>{title}</h1>
       <div className="user-menu">
         <button type="button" aria-label="알림">
-          <span className="bell" />
+          <Bell size={18} strokeWidth={2} aria-hidden="true" />
         </button>
-        <span className="avatar" aria-hidden="true" />
+        <CircleUserRound size={24} strokeWidth={2} aria-hidden="true" />
         <strong>홍길동</strong>
       </div>
     </header>
@@ -3742,21 +2684,22 @@ function TatStatusHeader({
         </div>
         <span>남은 기간</span>
         <strong className="danger">1일</strong>
-        <button
-          type="button"
+        <AckButton
+          variant="primary"
+          size="xsmall"
           disabled={isStatisticsConfirmed}
           onClick={onOpenStatisticsConfirm}
         >
           통계확인 완료
-        </button>
+        </AckButton>
         {isStatisticsConfirmed && (
-          <button
-            type="button"
-            className="secondary"
+          <AckButton
+            variant="secondary"
+            size="xsmall"
             onClick={onResetStatisticsConfirm}
           >
             통계취소
-          </button>
+          </AckButton>
         )}
       </div>
     </section>
@@ -3765,40 +2708,39 @@ function TatStatusHeader({
 
 function ReportTabbar({ activeTab, onTabChange, tabs = reportTabs }) {
   return (
-    <nav className="tabbar" aria-label="분석 탭">
-      {tabs.map((tab) => (
-        <button
-          type="button"
-          className={activeTab === tab.id ? "active" : undefined}
-          aria-current={activeTab === tab.id ? "page" : undefined}
-          key={tab.id}
-          onClick={() => onTabChange(tab.id)}
-        >
-          {tab.label}
-        </button>
-      ))}
-    </nav>
+    <AckContentTabs
+      className="report-tabs"
+      value={activeTab}
+      onValueChange={onTabChange}
+      size="lg"
+    >
+      <AckContentTabs.List aria-label="분석 탭">
+        {tabs.map((tab) => (
+          <AckContentTabs.Tab value={tab.id} key={tab.id}>
+            {tab.label}
+          </AckContentTabs.Tab>
+        ))}
+      </AckContentTabs.List>
+    </AckContentTabs>
   );
 }
 
 function ImageSpecimenModal({ onClose }) {
   return (
-    <div className="modal-backdrop" role="presentation">
-      <div
-        className="image-specimen-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="image-specimen-title"
-      >
-        <div className="image-specimen-modal-head">
-          <h2 id="image-specimen-title">이미지 검체</h2>
-          <button type="button" aria-label="닫기" onClick={onClose}>
-            ×
-          </button>
-        </div>
-        <img src={urineImageSpecimenPreview} alt="소변검사 이미지 검체 예시" />
-      </div>
-    </div>
+    <AckResponsiveDialog
+      open
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
+      title="이미지 검체"
+      maxWidth="sm:max-w-[820px]"
+    >
+      <img
+        className="image-specimen-preview"
+        src={urineImageSpecimenPreview}
+        alt="소변검사 이미지 검체 예시"
+      />
+    </AckResponsiveDialog>
   );
 }
 
@@ -4243,8 +3185,6 @@ function UrineMakerDoughnutChart({ makers }) {
 function UrineSelectedTestDetail({ selection, doughnutRows, institutionRows }) {
   const [activeInstitutionSpecimenKey, setActiveInstitutionSpecimenKey] =
     useState(null);
-  const [institutionPage, setInstitutionPage] = useState(1);
-  const [gridTooltip, setGridTooltip] = useState(null);
   const selectedTest = urineUnacceptableRateData.tests[selection.testIndex];
   const selectedTestKey = getUrineTestKey(selectedTest);
   const selectedSpecimenDetails = urineUnacceptableRateData.specimens
@@ -4291,82 +3231,14 @@ function UrineSelectedTestDetail({ selection, doughnutRows, institutionRows }) {
     (detail) => detail.specimen.key === activeInstitutionSpecimenKey,
   );
   const activeInstitutionRows = activeDetail?.institutionRows ?? [];
-  const institutionTotalPages = Math.max(
-    1,
-    Math.ceil(activeInstitutionRows.length / institutionPageSize),
-  );
-  const institutionStartIndex = (institutionPage - 1) * institutionPageSize;
-  const visibleInstitutionRows = activeInstitutionRows.slice(
-    institutionStartIndex,
-    institutionStartIndex + institutionPageSize,
-  );
-  const institutionEndIndex = Math.min(
-    institutionStartIndex + visibleInstitutionRows.length,
-    activeInstitutionRows.length,
-  );
 
   useEffect(() => {
     setActiveInstitutionSpecimenKey(null);
-    setInstitutionPage(1);
-    setGridTooltip(null);
   }, [selection.testIndex]);
 
   const toggleInstitutionGrid = (specimenKey) => {
-    setGridTooltip(null);
-    setInstitutionPage(1);
     setActiveInstitutionSpecimenKey((current) =>
       current === specimenKey ? null : specimenKey,
-    );
-  };
-
-  const moveInstitutionPage = (nextPage) => {
-    setGridTooltip(null);
-    setInstitutionPage(Math.min(institutionTotalPages, Math.max(1, nextPage)));
-  };
-
-  const hideGridTooltip = () => {
-    setGridTooltip(null);
-  };
-
-  const showGridTooltip = (event, value) => {
-    const text = String(formatUrineCell(value));
-
-    if (!text) {
-      setGridTooltip(null);
-      return;
-    }
-
-    const rect = event.currentTarget.getBoundingClientRect();
-    const hasRoomAbove = rect.top > 90;
-    const left = Math.min(
-      Math.max(rect.left + rect.width / 2, 20),
-      window.innerWidth - 20,
-    );
-    const top = hasRoomAbove ? rect.top - 8 : rect.bottom + 8;
-
-    setGridTooltip({
-      text,
-      left,
-      top,
-      placement: hasRoomAbove ? "above" : "below",
-    });
-  };
-
-  const renderInstitutionCell = (value) => {
-    const text = String(formatUrineCell(value));
-
-    return (
-      <span
-        role="gridcell"
-        title={text}
-        tabIndex={text ? 0 : undefined}
-        onMouseEnter={(event) => showGridTooltip(event, text)}
-        onMouseLeave={hideGridTooltip}
-        onFocus={(event) => showGridTooltip(event, text)}
-        onBlur={hideGridTooltip}
-      >
-        {text}
-      </span>
     );
   };
 
@@ -4463,126 +3335,24 @@ function UrineSelectedTestDetail({ selection, doughnutRows, institutionRows }) {
               목록
             </h4>
             <div className="institution-list-actions">
-              <span>
-                전체 {activeInstitutionRows.length}개 중{" "}
-                {activeInstitutionRows.length > 0
-                  ? `${institutionStartIndex + 1}-${institutionEndIndex}`
-                  : "0"}
-                표시
-              </span>
-              <button
-                type="button"
-                className="excel-button"
-                onClick={() =>
-                  downloadUrineInstitutionCsv({
-                    selectedTest,
-                    selectedSpecimen: activeDetail.specimen,
-                    rows: activeInstitutionRows,
-                  })
-                }
-              >
-                엑셀 다운로드
-              </button>
+              <span>전체 {activeInstitutionRows.length}개 기관</span>
             </div>
           </div>
-          <div
-            className="institution-grid urine-institution-grid"
-            role="grid"
+          <AckDataGrid
+            className="institution-data-grid"
+            data={withRowNo(activeInstitutionRows)}
+            columns={urineInstitutionGridColumns}
+            getRowId={(row, index) =>
+              `${row["기관코드"] ?? ""}-${row["검체명"] ?? ""}-${row["검사명"] ?? ""}-${index}`
+            }
+            paginationMode="pagination"
+            pageSize={institutionPageSize}
+            density="compact"
+            stickyHeader
+            enableExcelExport
+            excelFileName={`${selectedTest.name}_${activeDetail.specimen.key}_Unacceptable기관목록.xlsx`}
             aria-label="소변검사 Unacceptable 기관 목록"
-            onScroll={hideGridTooltip}
-          >
-            <div
-              className="institution-grid-row institution-grid-header urine-institution-grid-row"
-              role="row"
-            >
-              {[
-                "No",
-                "기관코드",
-                "기관명",
-                "검체명",
-                "검사명",
-                "결과",
-                "제조사명",
-                "정답",
-                "기준분류SDI",
-                "세부SDI",
-              ].map((label) => (
-                <span role="columnheader" key={label}>
-                  {label}
-                </span>
-              ))}
-            </div>
-            {visibleInstitutionRows.map((row, index) => (
-              <div
-                className="institution-grid-row urine-institution-grid-row"
-                role="row"
-                key={`${row["기관코드"]}-${row["검체명"]}-${row["검사명"]}-${index}`}
-              >
-                {renderInstitutionCell(institutionStartIndex + index + 1)}
-                {renderInstitutionCell(row["기관코드"])}
-                {renderInstitutionCell(row["기관명"])}
-                {renderInstitutionCell(row["검체명"])}
-                {renderInstitutionCell(row["검사명"])}
-                {renderInstitutionCell(row["rslt"])}
-                {renderInstitutionCell(row["제조사명"])}
-                {renderInstitutionCell(row["정답"])}
-                {renderInstitutionCell(row["기준SDI"])}
-                {renderInstitutionCell(row["세부SDI"])}
-              </div>
-            ))}
-          </div>
-          {gridTooltip && (
-            <div
-              className={`grid-cell-tooltip ${
-                gridTooltip.placement === "below" ? "is-below" : ""
-              }`}
-              role="tooltip"
-              style={{
-                left: `${gridTooltip.left}px`,
-                top: `${gridTooltip.top}px`,
-              }}
-            >
-              {gridTooltip.text}
-            </div>
-          )}
-          <div
-            className="institution-pagination urine-institution-pagination"
-            aria-label="기관 목록 페이지"
-          >
-            <button
-              type="button"
-              aria-label="이전 페이지"
-              disabled={institutionPage === 1}
-              onClick={() => moveInstitutionPage(institutionPage - 1)}
-            >
-              ‹
-            </button>
-            <div className="urine-page-buttons">
-              {Array.from({ length: institutionTotalPages }, (_, index) => (
-                <button
-                  type="button"
-                  className={
-                    institutionPage === index + 1 ? "active" : undefined
-                  }
-                  key={index + 1}
-                  onClick={() => moveInstitutionPage(index + 1)}
-                >
-                  {index + 1}
-                </button>
-              ))}
-            </div>
-            <button
-              type="button"
-              aria-label="다음 페이지"
-              disabled={institutionPage === institutionTotalPages}
-              onClick={() => moveInstitutionPage(institutionPage + 1)}
-            >
-              ›
-            </button>
-            <span>
-              {institutionPageSize}개씩 보기
-            </span>
-          </div>
+          />
         </div>
       )}
     </article>
@@ -4876,6 +3646,10 @@ function createUrineTrendAnalysisData(rows) {
 
 function UrineTrendAnalysis({ rows }) {
   const { periods, rows: trendRows } = createUrineTrendAnalysisData(rows);
+  const trendGridColumns = useMemo(
+    () => buildTrendGridColumns(periods, "검사항목 / 검체"),
+    [periods],
+  );
   const [selectedCode, setSelectedCode] = useState(trendRows[0]?.code ?? "");
   const chartPanelRef = useRef(null);
   const selectedRow =
@@ -4914,83 +3688,19 @@ function UrineTrendAnalysis({ rows }) {
           <span>추세 = 직전 회차 대비 변화</span>
         </div>
 
-        <div className="trend-table-wrap">
-          <table className="trend-analysis-table urine-trend-analysis-table">
-            <thead>
-              <tr>
-                <th scope="col">검사항목 / 검체</th>
-                {periods.map((period) => (
-                  <th
-                    className={period.isCurrent ? "is-current" : undefined}
-                    key={period.key}
-                    scope="col"
-                  >
-                    {period.label}
-                  </th>
-                ))}
-                <th scope="col">추세</th>
-              </tr>
-            </thead>
-            <tbody>
-              {trendRows.map((row) => {
-                const changeTone = getTrendChangeTone(row.trendValue);
-                const isSelected = selectedRow?.code === row.code;
-
-                return (
-                  <tr
-                    className={isSelected ? "is-selected" : undefined}
-                    key={row.code}
-                    tabIndex={0}
-                    onClick={() => selectTrendRow(row.code)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        selectTrendRow(row.code);
-                      }
-                    }}
-                  >
-                    <th scope="row">{row.displayName}</th>
-                    {row.periodValues.map((value, index) => {
-                      const period = periods[index];
-                      const rateTone = getTrendRateTone(value.rate);
-                      const className = [
-                        "trend-rate-cell",
-                        `is-${rateTone}`,
-                        period?.isCurrent ? "is-current" : "",
-                      ]
-                        .filter(Boolean)
-                        .join(" ");
-                      const countTitle =
-                        value.rate === null
-                          ? "해당 회차 데이터 없음"
-                          : `${value.specimenName} / Unacceptable 기관수 ${Number(
-                              value.unacceptableCount,
-                            ).toLocaleString()} / 참여기관수 ${Number(
-                              value.participatingCount,
-                            ).toLocaleString()}`;
-
-                      return (
-                        <td
-                          className={className}
-                          key={`${row.code}-${value.periodKey}`}
-                          title={countTitle}
-                        >
-                          {formatTrendRate(value.rate)}
-                        </td>
-                      );
-                    })}
-                    <td className={`trend-change-cell is-${changeTone}`}>
-                      <span aria-hidden="true">
-                        {getTrendChangeIcon(changeTone)}
-                      </span>
-                      {formatTrendChange(row.trendValue)}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <AckDataGrid
+          className="trend-grid"
+          data={trendRows}
+          columns={trendGridColumns}
+          getRowId={(row) => row.code}
+          getRowClass={(row) =>
+            row.code === selectedRow?.code ? "is-selected" : undefined
+          }
+          onRowClick={(row) => selectTrendRow(row.code)}
+          density="compact"
+          stickyHeader
+          aria-label="검사항목/검체별 Unacceptable Rate 추이"
+        />
       </article>
 
       {selectedRow && (

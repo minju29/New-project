@@ -1,14 +1,16 @@
 :root {
-  --magenta: #a00056;
-  --magenta-dark: #85004b;
-  --ink: #111827;
-  --muted: #667085;
-  --line: #e3e8f1;
-  --panel: #ffffff;
-  --canvas: #f7f9fc;
-  --blue: #0869f4;
-  --green: #11a940;
-  font-family: "Segoe UI", "Malgun Gothic", Arial, sans-serif;
+  /* ADS 디자인 토큰으로 재스키닝 — 기존 var(--x) 사용처가 자동 캐스케이드됨 */
+  --magenta: var(--primary-500); /* #a00056 → #b32572 (KEQAS 브랜드) */
+  --magenta-dark: var(--primary-700); /* #85004b → #841350 */
+  --ink: var(--text-basic); /* → gray-900 */
+  --muted: var(--text-secondary); /* → secondary-800 */
+  --line: var(--border-gray); /* → gray-300 */
+  --panel: var(--surface-white); /* → gray-0 */
+  --canvas: var(--bg-gray-subtler); /* 페이지 배경 → gray-50 */
+  --blue: var(--info1-500); /* #0869f4 → #0068df */
+  --green: var(--success-500); /* #11a940 → #1d9437 */
+  /* ADS 토큰 기본 폰트(Pretendard 스택) 사용 */
+  font-family: var(--font-sans);
 }
 
 * {
@@ -25,6 +27,18 @@ button {
   font: inherit;
 }
 
+/* Tailwind preflight 방식 — @layer base로 브라우저 기본 button 테두리 리셋.
+   base 레이어라 utilities(.border 등)보다 우선순위가 낮아, border 클래스가 있는
+   그리드 export/페이지네이션 버튼은 테두리를 유지하고, 클래스 없는 버튼(필터 토글·AckButton)만 리셋됨 */
+@layer base {
+  button {
+    border-width: 0;
+    border-style: solid;
+    background-color: transparent;
+    background-image: none;
+  }
+}
+
 .app-shell {
   min-height: 100vh;
 }
@@ -36,7 +50,12 @@ button {
   justify-content: space-between;
   padding: 0 21px;
   color: #fff;
-  background: linear-gradient(90deg, #9d0058 0%, #a6005c 55%, #83004a 100%);
+  background: linear-gradient(
+    90deg,
+    var(--primary-600) 0%,
+    var(--primary-500) 55%,
+    var(--primary-700) 100%
+  );
 }
 
 .topbar h1 {
@@ -54,67 +73,26 @@ button {
 }
 
 .user-menu button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 30px;
   height: 30px;
   border: 0;
   background: transparent;
-  cursor: pointer;
-}
-
-.bell {
-  position: relative;
-  display: inline-block;
-  width: 14px;
-  height: 16px;
-  border: 2px solid #fff;
-  border-radius: 8px 8px 3px 3px;
-}
-
-.bell::after {
-  content: "";
-  position: absolute;
-  top: -4px;
-  right: -4px;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #ffb000;
-}
-
-.avatar {
-  display: inline-block;
-  width: 24px;
-  height: 24px;
-  border: 2px solid #fff;
-  border-radius: 50%;
-}
-
-.tabbar {
-  min-height: 55px;
-  display: flex;
-  align-items: center;
-  gap: 22px;
-  padding: 0 16px;
-  background: #f8f9fb;
-  border-bottom: 1px solid var(--line);
-  box-shadow: 0 5px 16px rgba(15, 23, 42, 0.06);
-}
-
-.tabbar button {
-  min-width: 74px;
-  height: 34px;
-  padding: 0 14px;
-  border: 0;
-  border-radius: 999px;
-  background: transparent;
-  color: #151b2f;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.tabbar .active {
   color: #fff;
-  background: var(--magenta);
+  cursor: pointer;
+}
+
+.user-menu svg {
+  color: #fff;
+}
+
+/* .tabbar 스타일은 AckContentTabs로 대체됨 (Stage 5) */
+
+.report-tabs {
+  padding-top: 8px;
+  padding-bottom: 8px;
 }
 
 .dashboard {
@@ -161,105 +139,20 @@ button {
 }
 
 .tat-progress .danger {
-  color: #ff0b18;
+  color: var(--text-danger);
 }
 
-.tat-progress button {
-  height: 34px;
-  padding: 0 22px;
-  border: 0;
-  border-radius: 5px;
-  color: #fff;
-  background: var(--magenta);
-  font-weight: 800;
-  cursor: pointer;
-}
+/* .tat-progress 버튼 스타일은 AckButton으로 대체됨 (Stage 2) */
 
-.tat-progress button:disabled {
-  color: #b7becb;
-  background: #e8ecf3;
-  cursor: not-allowed;
-}
+/* .modal-backdrop / .statistics-confirm-modal / .statistics-confirm-actions 스타일은
+   AckDialog로 대체됨 (Stage 4). 다이얼로그 본문 메시지는 .statistics-confirm-message 사용 */
 
-.tat-progress button.secondary {
-  color: #25304a;
-  border: 1px solid var(--line);
-  background: #f9fafc;
-}
-
-.tat-progress button.secondary:hover {
-  border-color: #c6cedc;
-  background: #f3f5f8;
-}
-
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  display: grid;
-  place-items: center;
-  padding: 24px;
-  background: rgba(17, 24, 39, 0.42);
-}
-
-.statistics-confirm-modal {
-  width: min(360px, 100%);
-  padding: 24px;
-  border: 1px solid #dce3ed;
-  border-radius: 8px;
-  background: #fff;
-  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.22);
-  color: #151b2f;
-  text-align: center;
-}
-
-.statistics-confirm-modal h2 {
-  margin: 0 0 12px;
-  font-size: 18px;
-  font-weight: 900;
-}
-
-.statistics-confirm-modal p {
+.statistics-confirm-message {
   margin: 0;
-  color: #25304a;
+  color: var(--muted);
   font-size: 15px;
   font-weight: 700;
   line-height: 1.45;
-}
-
-.statistics-confirm-actions {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-  margin-top: 22px;
-}
-
-.statistics-confirm-actions button {
-  min-width: 76px;
-  height: 34px;
-  padding: 0 16px;
-  border: 1px solid var(--line);
-  border-radius: 5px;
-  background: #f9fafc;
-  color: #25304a;
-  font-weight: 800;
-  cursor: pointer;
-}
-
-.statistics-confirm-actions button.primary {
-  border-color: var(--magenta);
-  background: var(--magenta);
-  color: #fff;
-}
-
-.statistics-confirm-actions button:hover {
-  border-color: #c6cedc;
-  background: #f3f5f8;
-}
-
-.statistics-confirm-actions button.primary:hover {
-  border-color: var(--magenta-dark);
-  background: var(--magenta-dark);
 }
 
 .progress-track {
@@ -389,49 +282,9 @@ button {
   outline-offset: 4px;
 }
 
-.image-specimen-modal {
-  width: min(760px, 100%);
-  padding: 20px;
-  border: 1px solid #dce3ed;
-  border-radius: 8px;
-  background: #fff;
-  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.22);
-}
+/* .image-specimen-modal* 스타일은 AckResponsiveDialog로 대체됨 (Stage 4) */
 
-.image-specimen-modal-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 14px;
-}
-
-.image-specimen-modal-head h2 {
-  margin: 0;
-  color: #151b2f;
-  font-size: 18px;
-  font-weight: 900;
-}
-
-.image-specimen-modal-head button {
-  width: 32px;
-  height: 32px;
-  border: 1px solid var(--line);
-  border-radius: 50%;
-  background: #f9fafc;
-  color: #25304a;
-  font-size: 20px;
-  font-weight: 800;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.image-specimen-modal-head button:hover {
-  border-color: #c6cedc;
-  background: #f3f5f8;
-}
-
-.image-specimen-modal img {
+.image-specimen-preview {
   display: block;
   width: 100%;
   height: auto;
@@ -462,72 +315,6 @@ button {
   color: var(--muted);
   font-size: 13px;
   font-weight: 800;
-}
-
-.institution-grid-row.urine-institution-grid-row {
-  min-width: 1120px;
-  grid-template-columns: 38px 96px minmax(150px, 1.1fr) 92px 128px 82px minmax(150px, 1.1fr) minmax(180px, 1.2fr) 82px 82px;
-}
-
-.institution-pagination.urine-institution-pagination {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
-  align-items: center;
-  gap: 8px;
-}
-
-.urine-institution-pagination > button {
-  flex: 0 0 auto;
-}
-
-.urine-page-buttons {
-  min-width: 0;
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  padding: 2px 0 6px;
-}
-
-.urine-page-buttons::-webkit-scrollbar {
-  height: 8px;
-}
-
-.urine-page-buttons::-webkit-scrollbar-track {
-  background: #edf1f7;
-  border-radius: 999px;
-}
-
-.urine-page-buttons::-webkit-scrollbar-thumb {
-  background: #c5cedd;
-  border-radius: 999px;
-}
-
-.urine-page-buttons button {
-  flex: 0 0 auto;
-}
-
-.grid-cell-tooltip {
-  position: fixed;
-  z-index: 10000;
-  max-width: min(420px, calc(100vw - 32px));
-  padding: 8px 10px;
-  border: 1px solid #d9e1ed;
-  border-radius: 6px;
-  background: #111827;
-  color: #fff;
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.22);
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1.35;
-  pointer-events: none;
-  transform: translate(-50%, -100%);
-  white-space: normal;
-  word-break: keep-all;
-  overflow-wrap: anywhere;
-}
-
-.grid-cell-tooltip.is-below {
-  transform: translate(-50%, 0);
 }
 
 .content-grid {
@@ -683,7 +470,7 @@ button {
 }
 
 .unacc-card-metrics .danger {
-  color: #f20f23;
+  color: var(--text-danger);
 }
 
 .unacc-specimen-grid {
@@ -915,6 +702,21 @@ button {
   height: 100% !important;
 }
 
+/* 통계상세(정량)·추이·기관 그리드 — 헤더 굵게·세로 증대, 본문 세로 축소 (세로 길이 통일) */
+.statistics-grid [data-slot="ack-data-grid-header-cell"],
+.trend-grid [data-slot="ack-data-grid-header-cell"],
+.institution-data-grid [data-slot="ack-data-grid-header-cell"] {
+  font-weight: 700;
+  padding-top: 9px;
+  padding-bottom: 9px;
+}
+
+.statistics-grid [data-slot="ack-data-grid-cell"],
+.institution-data-grid [data-slot="ack-data-grid-cell"] {
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+
 .statistics-view {
   display: grid;
   gap: 12px;
@@ -938,50 +740,13 @@ button {
   white-space: nowrap;
 }
 
-.statistics-actions button {
-  height: 30px;
-  padding: 0 12px;
-  border: 1px solid var(--line);
-  border-radius: 5px;
-  background: #f9fafc;
-  color: #25304a;
-  font-size: 12px;
-  font-weight: 800;
-  cursor: pointer;
-}
-
 .statistics-actions em {
   color: var(--magenta);
   font-style: normal;
   font-weight: 900;
 }
 
-.statistics-actions button.primary {
-  color: #fff;
-  border-color: var(--magenta);
-  background: var(--magenta);
-}
-
-.statistics-actions button:hover:not(:disabled) {
-  border-color: #c6cedc;
-  background: #f3f5f8;
-}
-
-.statistics-actions button.primary:hover:not(:disabled) {
-  border-color: var(--magenta-dark);
-  background: var(--magenta-dark);
-}
-
-.statistics-actions button:disabled {
-  color: #a5adba;
-  cursor: not-allowed;
-}
-
-.statistics-actions button.primary:disabled {
-  color: #c7cbd5;
-  border-color: #e1e5ee;
-  background: #f3f5f8;
-}
+/* .statistics-actions 버튼 스타일은 AckButton으로 대체됨 (Stage 2) */
 
 .statistics-scope-tabs {
   display: flex;
@@ -1030,398 +795,6 @@ button {
 .statistics-scope-tabs button.active em {
   background: rgba(255, 255, 255, 0.22);
   color: #fff;
-}
-
-.statistics-table-wrap {
-  max-height: calc(100vh - 260px);
-  min-height: 480px;
-  overflow: auto;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: #fff;
-}
-
-.statistics-table {
-  width: 100%;
-  min-width: 1320px;
-  border-collapse: separate;
-  border-spacing: 0;
-  color: #25304a;
-  font-size: 12px;
-}
-
-.statistics-table th,
-.statistics-table td {
-  min-width: 104px;
-  padding: 8px 10px;
-  border-right: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
-  background: #fff;
-  text-align: left;
-  white-space: nowrap;
-}
-
-.statistics-table th:nth-child(1),
-.statistics-table td:nth-child(1) {
-  min-width: 190px;
-}
-
-.statistics-table th:nth-child(2),
-.statistics-table td:nth-child(2) {
-  min-width: 118px;
-}
-
-.statistics-table th:nth-child(3),
-.statistics-table td:nth-child(3) {
-  min-width: 150px;
-}
-
-.statistics-table th:nth-child(4),
-.statistics-table td:nth-child(4) {
-  min-width: 210px;
-}
-
-.statistics-table thead tr:first-child th {
-  position: sticky;
-  top: 0;
-  z-index: 3;
-  background: #eef2f7;
-  color: #151b2f;
-  font-size: 12px;
-  font-weight: 900;
-}
-
-.statistics-table thead tr:first-child th.is-sorted {
-  background: #f9e8f1;
-  color: var(--magenta);
-}
-
-.statistics-sort-button {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  width: 100%;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.statistics-sort-button span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.statistics-sort-button i {
-  flex: 0 0 auto;
-  color: #8793a5;
-  font-style: normal;
-  font-size: 10px;
-}
-
-.statistics-table thead tr:first-child th.is-sorted .statistics-sort-button i {
-  color: var(--magenta);
-}
-
-.statistics-sort-button:hover span {
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.statistics-filter-row th {
-  position: sticky;
-  top: 34px;
-  z-index: 2;
-  padding: 7px;
-  background: #f8fafc;
-}
-
-.statistics-table tbody tr:nth-child(even) td {
-  background: #fbfcfe;
-}
-
-.statistics-table tbody tr:hover td {
-  background: #fff7fb;
-}
-
-.statistics-table .number-cell {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-
-.statistics-filter {
-  display: grid;
-  gap: 5px;
-}
-
-.statistics-filter input,
-.statistics-filter select {
-  width: 100%;
-  height: 28px;
-  min-width: 0;
-  border: 1px solid #d6deea;
-  border-radius: 5px;
-  background: #fff;
-  color: #25304a;
-  font-size: 11px;
-}
-
-.statistics-filter input {
-  padding: 0 7px;
-}
-
-.statistics-filter select {
-  padding: 0 5px;
-}
-
-.statistics-filter input:focus,
-.statistics-filter select:focus {
-  border-color: var(--magenta);
-  outline: 2px solid rgba(160, 0, 86, 0.12);
-}
-
-.statistics-compare {
-  display: grid;
-  grid-template-columns: 54px minmax(0, 1fr);
-  gap: 4px;
-}
-
-.statistics-empty {
-  height: 180px;
-  color: var(--muted);
-  text-align: center !important;
-  font-weight: 800;
-}
-
-.qualitative-statistics-panel {
-  padding: 12px;
-}
-
-.qualitative-table-wrap {
-  max-height: calc(100vh - 245px);
-  min-height: 520px;
-  overflow: auto;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: #fff;
-}
-
-.qualitative-table {
-  table-layout: fixed;
-  min-width: var(--qualitative-table-width, 935px);
-  width: max(100%, var(--qualitative-table-width, 935px));
-  border-collapse: separate;
-  border-spacing: 0;
-  color: #151b2f;
-  font-size: 12px;
-}
-
-.qualitative-table th,
-.qualitative-table td {
-  height: 34px;
-  padding: 7px 6px;
-  border-right: 1px solid #dfe8f4;
-  border-bottom: 1px solid #dfe8f4;
-  background: #fff;
-  text-align: center;
-  vertical-align: middle;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.qualitative-table thead th {
-  white-space: normal;
-  word-break: keep-all;
-  overflow-wrap: anywhere;
-  line-height: 1.25;
-}
-
-.qualitative-table tbody tr:nth-child(odd) td {
-  background: #fbfcfe;
-}
-
-.qualitative-table tbody tr:hover td {
-  background: #fff7fb;
-}
-
-.qualitative-table thead tr:first-child th {
-  position: sticky;
-  top: 0;
-  z-index: 5;
-  height: 46px;
-  padding-top: 6px;
-  padding-bottom: 6px;
-}
-
-.qualitative-table thead tr:nth-child(2) th {
-  position: sticky;
-  top: 46px;
-  z-index: 4;
-  height: 46px;
-  padding-top: 6px;
-  padding-bottom: 6px;
-}
-
-.qualitative-table thead tr:nth-child(3) th {
-  position: sticky;
-  top: 92px;
-  z-index: 3;
-  height: 74px;
-  padding: 6px;
-  background: #f8fafc;
-}
-
-.qualitative-table .col-selection-group,
-.qualitative-header-expected,
-.qualitative-header-operator {
-  border-bottom-color: #edf2f8;
-}
-
-.qualitative-table thead th.is-sorted {
-  background: #f9e8f1 !important;
-  color: var(--magenta);
-}
-
-.qualitative-table thead th.is-sorted .statistics-sort-button i {
-  color: var(--magenta);
-}
-
-.qualitative-table .statistics-sort-button {
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-height: 28px;
-  text-align: center;
-}
-
-.qualitative-table .statistics-sort-button span {
-  overflow: visible;
-  text-overflow: clip;
-  white-space: normal;
-  word-break: keep-all;
-  overflow-wrap: anywhere;
-  line-height: 1.25;
-}
-
-.qualitative-table .statistics-sort-button i {
-  flex: 0 0 auto;
-}
-
-.qualitative-table .number-cell {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-
-.qualitative-header-base {
-  background: #eef2f7 !important;
-  color: #151b2f;
-  font-weight: 900;
-}
-
-.qualitative-header-expected {
-  background: #eef2f7 !important;
-  color: #151b2f;
-  font-weight: 900;
-}
-
-.qualitative-header-operator {
-  background: #eef2f7 !important;
-  color: #151b2f;
-  font-weight: 900;
-}
-
-.qualitative-header-compare {
-  background: #eef2f7 !important;
-  color: #151b2f;
-  font-weight: 900;
-}
-
-.qualitative-table .col-program {
-  width: 74px;
-  min-width: 74px;
-}
-
-.qualitative-table .col-parent-test {
-  width: 80px;
-  min-width: 80px;
-}
-
-.qualitative-table .col-test {
-  width: 76px;
-  min-width: 76px;
-}
-
-.qualitative-table .col-specimen {
-  width: 78px;
-  min-width: 78px;
-}
-
-.qualitative-table .col-category {
-  width: 132px;
-  min-width: 132px;
-}
-
-.qualitative-table .col-result {
-  width: 72px;
-  min-width: 72px;
-}
-
-.qualitative-table .col-count {
-  width: 28px;
-  min-width: 28px;
-}
-
-.qualitative-table .col-rate {
-  width: 31px;
-  min-width: 31px;
-}
-
-.qualitative-table .col-answer {
-  width: 158px;
-  min-width: 158px;
-}
-
-.qualitative-table .col-remark {
-  width: 86px;
-  min-width: 86px;
-}
-
-.qualitative-table .col-judgment {
-  width: 92px;
-  min-width: 92px;
-}
-
-.qualitative-table .col-compare {
-  width: 250px;
-  min-width: 250px;
-}
-
-.qualitative-filter-row .statistics-filter {
-  gap: 6px;
-}
-
-.qualitative-filter-row .statistics-filter input,
-.qualitative-filter-row .statistics-filter select {
-  height: 27px;
-  font-size: 11px;
-}
-
-.qualitative-filter-row .statistics-filter input {
-  padding: 0 6px;
-}
-
-.qualitative-filter-row .statistics-filter select {
-  padding: 0 4px;
-}
-
-.qualitative-filter-row .statistics-compare {
-  grid-template-columns: minmax(0, 1fr);
-  gap: 4px;
 }
 
 .qualitative-expected-cell {
@@ -1600,6 +973,40 @@ button {
 
 .trend-analysis-table tbody tr.is-selected th {
   color: var(--magenta);
+}
+
+/* AckDataGrid 추이 히트맵 — 셀 패딩 제거 후 cellRenderer가 배경 톤으로 셀을 꽉 채움 + 선택 행 강조 */
+.trend-grid [data-slot="ack-data-grid-cell"],
+.trend-grid [data-slot="ack-data-grid-cell-value"] {
+  padding: 0;
+  height: 100%;
+}
+
+.trend-grid .trend-rate-cell,
+.trend-grid .trend-change-cell,
+.trend-grid .trend-name-cell {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  min-height: 32px;
+  padding: 2px 10px;
+  box-sizing: border-box;
+}
+
+.trend-grid .trend-rate-cell,
+.trend-grid .trend-change-cell {
+  justify-content: center;
+  gap: 4px;
+}
+
+.trend-grid .trend-name-cell {
+  justify-content: flex-start;
+  font-weight: 800;
+}
+
+.trend-grid [data-slot="ack-data-grid-row"].is-selected {
+  outline: 2px solid var(--magenta);
+  outline-offset: -2px;
 }
 
 .trend-rate-cell {
@@ -2159,156 +1566,8 @@ button {
   gap: 10px;
 }
 
-.excel-button {
-  height: 30px;
-  padding: 0 13px;
-  color: #25304a;
-  border: 1px solid var(--line);
-  border-radius: 5px;
-  background: #f9fafc;
-  font-size: 12px;
-  font-weight: 800;
-  cursor: pointer;
-}
+/* .excel-button 스타일은 AckButton으로 대체됨 (Stage 2) */
 
-.excel-button:hover {
-  border-color: #c6cedc;
-  background: #f3f5f8;
-}
-
-.excel-button:focus-visible {
-  outline: 2px solid var(--magenta);
-  outline-offset: 2px;
-}
-
-.institution-grid {
-  overflow-x: auto;
-  border: 1px solid var(--line);
-  border-radius: 5px;
-}
-
-.institution-grid-row {
-  min-width: 760px;
-  display: grid;
-  grid-template-columns: 38px 105px minmax(130px, 1.25fr) 70px 82px 82px minmax(105px, 1fr) minmax(118px, 1fr);
-}
-
-.institution-grid-row.has-answer-column {
-  min-width: 980px;
-  grid-template-columns: 38px 105px minmax(130px, 1.1fr) 78px minmax(120px, 0.95fr) 82px 82px minmax(105px, 1fr) minmax(130px, 1fr);
-}
-
-.institution-grid-row.sediment-result-grid {
-  min-width: 900px;
-  grid-template-columns: 38px 105px minmax(150px, 0.9fr) minmax(260px, 1.25fr) minmax(260px, 1.25fr);
-}
-
-.institution-grid-row + .institution-grid-row {
-  border-top: 1px solid var(--line);
-}
-
-.institution-grid-row span {
-  min-width: 0;
-  padding: 8px 9px;
-  color: #25304a;
-  font-size: 11px;
-  line-height: 1.25;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.institution-grid-row.sediment-result-grid .institution-grid-cell-result,
-.institution-grid-row.sediment-result-grid .institution-grid-cell-answer {
-  overflow: visible;
-  text-overflow: clip;
-  white-space: normal;
-  word-break: keep-all;
-  overflow-wrap: anywhere;
-  line-height: 1.35;
-}
-
-.institution-grid-row span + span {
-  border-left: 1px solid var(--line);
-}
-
-.institution-grid-header {
-  background: #f3f5f8;
-}
-
-.institution-grid-header span {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-weight: 800;
-}
-
-.column-indicator {
-  display: inline-grid;
-  flex: 0 0 auto;
-  place-items: center;
-  width: 14px;
-  height: 14px;
-  border: 1px solid #cbd5e1;
-  border-radius: 50%;
-  background: #fff;
-  color: #6b7890;
-  font-size: 9px;
-  font-style: normal;
-  font-weight: 900;
-  line-height: 1;
-}
-
-.institution-grid-header span:hover .column-indicator,
-.institution-grid-header span:focus-visible .column-indicator {
-  border-color: var(--magenta);
-  color: var(--magenta);
-}
-
-.institution-pagination {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 12px;
-  color: #25304a;
-  font-size: 12px;
-}
-
-.institution-pagination button {
-  min-width: 31px;
-  height: 31px;
-  padding: 0 10px;
-  color: #25304a;
-  border: 1px solid var(--line);
-  border-radius: 5px;
-  background: #f7f8fb;
-  font-weight: 800;
-  cursor: pointer;
-}
-
-.institution-pagination button:hover:not(:disabled),
-.institution-pagination button.active {
-  color: #fff;
-  border-color: var(--magenta);
-  background: var(--magenta);
-}
-
-.institution-pagination button:disabled {
-  color: #a5adba;
-  cursor: not-allowed;
-  background: #f3f5f8;
-}
-
-.institution-pagination button:focus-visible {
-  outline: 2px solid var(--magenta);
-  outline-offset: 2px;
-}
-
-.institution-pagination span {
-  margin-left: auto;
-  font-weight: 700;
-  white-space: nowrap;
-}
 
 .placeholder {
   border-radius: 5px;
@@ -2402,10 +1661,6 @@ button {
     gap: 12px;
   }
 
-  .image-specimen-modal {
-    padding: 16px;
-  }
-
   .chart-legend {
     flex-wrap: wrap;
     gap: 10px 18px;
@@ -2456,11 +1711,6 @@ button {
     align-items: flex-start;
     flex-direction: column;
     white-space: normal;
-  }
-
-  .statistics-table-wrap {
-    max-height: 620px;
-    min-height: 420px;
   }
 
   .trend-selection {
