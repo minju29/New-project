@@ -1,0 +1,14 @@
+프로그램명,상위검사명,검사명,검체명,기준분류,보고된 결과,결과선택기관수_전체,결과선택기관수_선택,결과선택기관수_비율,예상 정답(INTENDED),예상 Remark,예상 판정,운영자 정답(INTENDED),운영자 Remark,운영자 판정,예상&운영자 정답 및 판정비교
+소변검사,Urinalysis,-pH,CU-25-01,Roche,6.0,179,179,100.00,6.0,,Acceptable,"5.5, 6.0, 6.5",,Acceptable,DIFFERENT
+소변검사,Urinalysis,-pH,CU-25-01,Arkray Inc,6.0,5,5,100.00,"5.5, 6.0, 6.5",,Acceptable,"5.5, 6.0, 6.5",,Acceptable,SAME
+소변검사,Urinalysis,-pH,CU-25-01,Abbott,5.0,505,2,0.40,"5.5, 6.0, 6.5",,Unacceptable,"5.5, 6.0, 6.5",,Unacceptable,SAME
+소변검사,Urinalysis,-pH,CU-25-01,Abbott,5.5,505,81,16.04,"5.5, 6.0, 6.5",,Acceptable,"5.5, 6.0, 6.5",,Acceptable,SAME
+소변검사,Urinalysis,-pH,CU-25-01,Abbott,6.0,505,402,79.60,"5.5, 6.0, 6.5",,Acceptable,"5.5, 6.0, 6.5",,Acceptable,SAME
+소변검사,Urinalysis,-pH,CU-25-01,Abbott,6.5,505,19,3.76,"5.5, 6.0, 6.5",,Acceptable,"5.5, 6.0, 6.5",,Acceptable,SAME
+소변검사,Urinalysis,-pH,CU-25-01,Abbott,8.5,505,1,0.20,"5.5, 6.0, 6.5",,Unacceptable,"5.5, 6.0, 6.5",,Unacceptable,SAME
+소변검사,Urinalysis,-pH,CU-25-01,Beckman Coulter Inc.,6.0,2,2,100.00,"5.5, 6.0, 6.5",,Acceptable,"5.5, 6.0, 6.5",,Acceptable,SAME
+소변검사,Urinalysis,-pH,CU-25-01,Siemens Healthineers,6.0,119,118,99.16,"6.0, 6.5",,Acceptable,"5.5, 6.0, 6.5",,Acceptable,DIFFERENT
+소변검사,Urinalysis,-pH,CU-25-01,Siemens Healthineers,6.5,119,1,0.84,"6.0, 6.5",,Acceptable,"5.5, 6.0, 6.5",,Acceptable,DIFFERENT
+소변검사,Urinalysis,-pH,CU-25-01,Sysmex,5.5,167,31,18.56,"5.5, 6.0",,Acceptable,"5.5, 6.0, 6.5",,Acceptable,DIFFERENT
+소변검사,Urinalysis,-pH,CU-25-01,Sysmex,6.0,167,136,81.44,"5.5, 6.0",,Acceptable,"5.5, 6.0, 6.5",,Acceptable,DIFFERENT
+소변검사,Urinalysis,-pH,CU-25-01,"URIT Medical Electronic Co., Ltd.",5.0,3,1,33.33,"5.5, 6.0, 6.5",,Unacceptable,"5.5, 6.0, 6.5",,Unacceptable,SAME

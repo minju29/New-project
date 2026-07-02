@@ -126,6 +126,10 @@ const reportTabs = [
   { id: "trend", label: "추이분석" },
 ];
 
+const dashboardTabs = reportTabs.filter(
+  (tab) => tab.id !== "statistics-qualitative",
+);
+
 const pageRoutes = [
   { id: "dashboard", path: "dashboard" },
   { id: "new-page", path: "new-page" },
@@ -639,6 +643,51 @@ const statisticsScopeOptions = [
   { value: "base", label: "기준분류 통계" },
   { value: "detail", label: "세분류 통계" },
 ];
+
+const qualitativeBaseColumns = [
+  { key: "프로그램명", label: "프로그램명", className: "col-program", type: "text" },
+  { key: "상위검사명", label: "상위검사명", className: "col-parent-test", type: "text" },
+  { key: "검사명", label: "검사명", className: "col-test", type: "text" },
+  { key: "검체명", label: "검체명", className: "col-specimen", type: "text" },
+  { key: "기준분류", label: "기준분류", className: "col-category", type: "text" },
+  { key: "보고된 결과", label: "보고된 결과", className: "col-result number-cell", type: "text" },
+];
+
+const qualitativeSelectionColumns = [
+  { key: "결과선택기관수_전체", label: "전체", className: "col-count number-cell", type: "number" },
+  { key: "결과선택기관수_선택", label: "선택", className: "col-count number-cell", type: "number" },
+  { key: "결과선택기관수_비율", label: "비율", className: "col-rate number-cell", type: "number" },
+];
+
+const qualitativeExpectedColumns = [
+  { key: "예상 정답(INTENDED)", label: "예상 정답", className: "col-answer qualitative-expected-cell", type: "text", cellType: "answer" },
+  { key: "예상 Remark", label: "예상 Remark", className: "col-remark qualitative-expected-cell", type: "text", cellType: "remark" },
+  { key: "예상 판정", label: "예상 판정", className: "col-judgment qualitative-expected-cell", type: "text", cellType: "judgment" },
+];
+
+const qualitativeOperatorColumns = [
+  { key: "운영자 정답(INTENDED)", label: "운영자 정답", className: "col-answer qualitative-operator-cell", type: "text", cellType: "answer" },
+  { key: "운영자 Remark", label: "운영자 Remark", className: "col-remark qualitative-operator-cell", type: "text", cellType: "remark" },
+  { key: "운영자 판정", label: "운영자 판정", className: "col-judgment qualitative-operator-cell", type: "text", cellType: "judgment" },
+];
+
+const qualitativeCompareColumn = {
+  key: "예상&운영자 정답 및 판정비교",
+  label: "예상&운영자 정답 및 판정비교",
+  className: "col-compare qualitative-compare-cell",
+  type: "text",
+  cellType: "comparison",
+};
+
+const qualitativeColumns = [
+  ...qualitativeBaseColumns,
+  ...qualitativeSelectionColumns,
+  ...qualitativeExpectedColumns,
+  ...qualitativeOperatorColumns,
+  qualitativeCompareColumn,
+];
+
+const urineResultDistributionAxisLabels = ["4.0", "4.5", "5.0", "5.5", "6.0", "6.5"];
 
 const numericCompareOperators = [
   { value: "", label: "비교" },
@@ -2389,6 +2438,565 @@ function NonconformanceAnalysis() {
   );
 }
 
+function formatQualitativeValue(value) {
+  return formatUrineCell(value);
+}
+
+function formatQualitativeCount(value) {
+  const cell = formatQualitativeValue(value);
+  if (!cell) return "";
+
+  const numericValue = Number(String(cell).replace(/,/g, ""));
+  return Number.isFinite(numericValue) ? numericValue.toLocaleString() : cell;
+}
+
+function formatQualitativeRate(value) {
+  const cell = formatQualitativeValue(value);
+  if (!cell) return "";
+  if (String(cell).includes("%")) return cell;
+
+  const numericValue = Number(String(cell).replace(/,/g, ""));
+  return Number.isFinite(numericValue) ? `${numericValue.toFixed(2)}%` : cell;
+}
+
+function getQualitativeJudgmentClass(value) {
+  return String(value).toLowerCase() === "unacceptable"
+    ? "is-unacceptable"
+    : "is-acceptable";
+}
+
+function getQualitativeComparisonClass(value) {
+  return String(value).toLowerCase() === "different"
+    ? "is-different"
+    : "is-same";
+}
+
+function QualitativeAnswerCell({ value }) {
+  const cellValue = formatQualitativeValue(value);
+
+  return (
+    <span className="qualitative-answer-cell" title={cellValue}>
+      {cellValue}
+    </span>
+  );
+}
+
+function QualitativeRemarkCell({ value }) {
+  const cellValue = formatQualitativeValue(value) || "-";
+
+  return (
+    <span className="qualitative-remark-cell" title={cellValue}>
+      {cellValue}
+    </span>
+  );
+}
+
+function QualitativeJudgmentCell({ value }) {
+  const cellValue = formatQualitativeValue(value);
+
+  return (
+    <span
+      className={`qualitative-judgment-cell ${getQualitativeJudgmentClass(
+        cellValue,
+      )}`}
+      title={cellValue}
+    >
+      {cellValue}
+    </span>
+  );
+}
+
+function formatQualitativeDisplayValue(row, column) {
+  const value = row[column.key];
+
+  if (column.key === "결과선택기관수_비율") return formatQualitativeRate(value);
+  if (
+    column.key === "결과선택기관수_전체" ||
+    column.key === "결과선택기관수_선택"
+  ) {
+    return formatQualitativeCount(value);
+  }
+  if (column.cellType === "remark") return formatQualitativeValue(value) || "-";
+
+  return formatQualitativeValue(value);
+}
+
+function createDefaultQualitativeFilters() {
+  return Object.fromEntries(
+    qualitativeColumns.map((column) => [
+      column.key,
+      {
+        search: "",
+        operator: "",
+        compareValue: "",
+      },
+    ]),
+  );
+}
+
+function rowMatchesQualitativeFilters(row, filters, appliedComparisons) {
+  return qualitativeColumns.every((column) => {
+    const filter = filters[column.key] ?? {};
+    const comparisonFilter = appliedComparisons[column.key] ?? {};
+    const rawValue = row[column.key];
+    const displayValue = formatQualitativeDisplayValue(row, column);
+    const searchValue = filter.search.trim().toLowerCase();
+
+    if (
+      searchValue &&
+      !String(displayValue).toLowerCase().includes(searchValue)
+    ) {
+      return false;
+    }
+
+    if (
+      !comparisonFilter.operator ||
+      !String(comparisonFilter.compareValue).trim()
+    ) {
+      return true;
+    }
+
+    if (column.type === "number") {
+      return compareNumberValue(
+        rawValue,
+        comparisonFilter.operator,
+        comparisonFilter.compareValue,
+      );
+    }
+
+    return compareTextValue(
+      displayValue,
+      comparisonFilter.operator,
+      comparisonFilter.compareValue,
+    );
+  });
+}
+
+function sortQualitativeRows(rows, sortConfig) {
+  if (!sortConfig.key) return rows;
+
+  const column = qualitativeColumns.find(
+    (qualitativeColumn) => qualitativeColumn.key === sortConfig.key,
+  );
+  if (!column) return rows;
+
+  return rows
+    .map((row, index) => ({ row, index }))
+    .sort((left, right) => {
+      const leftRawValue = left.row[column.key];
+      const rightRawValue = right.row[column.key];
+      const leftValue = formatQualitativeDisplayValue(left.row, column);
+      const rightValue = formatQualitativeDisplayValue(right.row, column);
+      const leftIsEmpty =
+        leftRawValue === null || leftRawValue === undefined || leftRawValue === "";
+      const rightIsEmpty =
+        rightRawValue === null ||
+        rightRawValue === undefined ||
+        rightRawValue === "";
+
+      if (leftIsEmpty && rightIsEmpty) return left.index - right.index;
+      if (leftIsEmpty) return 1;
+      if (rightIsEmpty) return -1;
+
+      let comparison;
+
+      if (column.type === "number") {
+        comparison =
+          parseStatisticNumber(leftRawValue) - parseStatisticNumber(rightRawValue);
+      } else {
+        comparison = String(leftValue).localeCompare(String(rightValue), "ko", {
+          numeric: true,
+          sensitivity: "base",
+        });
+      }
+
+      if (comparison === 0) return left.index - right.index;
+      return sortConfig.direction === "asc" ? comparison : -comparison;
+    })
+    .map(({ row }) => row);
+}
+
+function downloadQualitativeExcel({ rows, sortConfig }) {
+  const safeDate = new Date().toISOString().slice(0, 10);
+  const safeFileName = `정성_판정비교_${safeDate}`.replace(
+    /[\\/:*?"<>|]/g,
+    "_",
+  );
+  const sortColumn = qualitativeColumns.find(
+    (column) => column.key === sortConfig.key,
+  );
+  const sortText = sortColumn
+    ? `${sortColumn.label} ${sortConfig.direction === "asc" ? "오름차순" : "내림차순"}`
+    : "정렬 없음";
+  const headerCells = qualitativeColumns
+    .map((column) => `<th>${escapeHtml(column.label)}</th>`)
+    .join("");
+  const bodyRows = rows
+    .map(
+      (row) =>
+        `<tr>${qualitativeColumns
+          .map((column) => {
+            const cellValue = formatQualitativeDisplayValue(row, column);
+            const cellStyle =
+              column.type === "number"
+                ? "mso-number-format:'0.00'; text-align:right;"
+                : "mso-number-format:'\\@';";
+
+            return `<td style="${cellStyle}">${escapeHtml(cellValue)}</td>`;
+          })
+          .join("")}</tr>`,
+    )
+    .join("");
+
+  const html = `
+    <html>
+      <head>
+        <meta charset="UTF-8" />
+        <style>
+          table { border-collapse: collapse; font-family: 'Malgun Gothic', Arial, sans-serif; font-size: 11pt; }
+          th { background: #eef2f7; color: #151b2f; font-weight: 700; }
+          th, td { border: 1px solid #d5dce8; padding: 6px 8px; text-align: left; white-space: nowrap; }
+          caption { padding: 8px 0 10px; font-weight: 700; text-align: left; }
+          .meta td { background: #f9fafc; color: #556174; font-weight: 700; }
+        </style>
+      </head>
+      <body>
+        <table>
+          <caption>검사항목별 정성 판정 비교</caption>
+          <tbody class="meta">
+            <tr><td>정렬</td><td>${escapeHtml(sortText)}</td></tr>
+            <tr><td>다운로드 row 수</td><td>${rows.length.toLocaleString()}</td></tr>
+          </tbody>
+        </table>
+        <br />
+        <table>
+          <thead><tr>${headerCells}</tr></thead>
+          <tbody>${bodyRows}</tbody>
+        </table>
+      </body>
+    </html>
+  `;
+
+  const blob = new Blob(["\ufeff", html], {
+    type: "application/vnd.ms-excel;charset=utf-8",
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${safeFileName}.xls`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function UrineQualitativeStatistics({ rows }) {
+  const sourceRows = rows ?? [];
+  const [filters, setFilters] = useState(createDefaultQualitativeFilters);
+  const [appliedComparisons, setAppliedComparisons] = useState(
+    createDefaultQualitativeFilters,
+  );
+  const [sortConfig, setSortConfig] = useState({ key: "", direction: "asc" });
+  const filteredRows = sourceRows.filter((row) =>
+    rowMatchesQualitativeFilters(row, filters, appliedComparisons),
+  );
+  const sortedRows = sortQualitativeRows(filteredRows, sortConfig);
+  const hasActiveSort = Boolean(sortConfig.key);
+  const hasActiveFilters = qualitativeColumns.some((column) => {
+    const filter = filters[column.key];
+    const comparisonFilter = appliedComparisons[column.key];
+
+    return (
+      filter.search ||
+      comparisonFilter.operator ||
+      comparisonFilter.compareValue
+    );
+  });
+  const hasPendingComparisons = qualitativeColumns.some((column) => {
+    const filter = filters[column.key];
+    const comparisonFilter = appliedComparisons[column.key];
+
+    return (
+      filter.operator !== comparisonFilter.operator ||
+      filter.compareValue !== comparisonFilter.compareValue
+    );
+  });
+
+  const updateFilter = (columnKey, nextValue) => {
+    setFilters((currentFilters) => ({
+      ...currentFilters,
+      [columnKey]: {
+        ...currentFilters[columnKey],
+        ...nextValue,
+      },
+    }));
+  };
+
+  const applyComparisonFilters = () => {
+    setAppliedComparisons(
+      Object.fromEntries(
+        qualitativeColumns.map((column) => [
+          column.key,
+          {
+            search: "",
+            operator: filters[column.key].operator,
+            compareValue: filters[column.key].compareValue,
+          },
+        ]),
+      ),
+    );
+  };
+
+  const updateSort = (columnKey) => {
+    setSortConfig((currentSort) => {
+      if (currentSort.key !== columnKey) {
+        return { key: columnKey, direction: "asc" };
+      }
+
+      return {
+        key: columnKey,
+        direction: currentSort.direction === "asc" ? "desc" : "asc",
+      };
+    });
+  };
+
+  const resetSort = () => {
+    setSortConfig({ key: "", direction: "asc" });
+  };
+
+  const resetFilters = () => {
+    setFilters(createDefaultQualitativeFilters());
+    setAppliedComparisons(createDefaultQualitativeFilters());
+  };
+
+  const renderSortHeader = (column, headerClassName, extraProps = {}) => {
+    const isSorted = sortConfig.key === column.key;
+    const sortLabel = isSorted
+      ? sortConfig.direction === "asc"
+        ? "오름차순"
+        : "내림차순"
+      : "정렬 없음";
+
+    return (
+      <th
+        className={`${headerClassName} ${column.className}${
+          isSorted ? " is-sorted" : ""
+        }`}
+        title={column.label}
+        key={column.key}
+        {...extraProps}
+      >
+        <button
+          type="button"
+          className="statistics-sort-button"
+          title={column.label}
+          aria-label={`${column.label} ${sortLabel}. 클릭하여 정렬`}
+          onClick={() => updateSort(column.key)}
+        >
+          <span>{column.label}</span>
+          <i aria-hidden="true">
+            {isSorted ? (sortConfig.direction === "asc" ? "▲" : "▼") : "↕"}
+          </i>
+        </button>
+      </th>
+    );
+  };
+
+  const renderFilterCell = (column) => {
+    const filter = filters[column.key];
+    const operators =
+      column.type === "number" ? numericCompareOperators : textCompareOperators;
+
+    return (
+      <th className={column.className} key={`${column.key}-filter`}>
+        <div className="statistics-filter">
+          <input
+            type="search"
+            value={filter.search}
+            placeholder="검색"
+            aria-label={`${column.label} 검색`}
+            onChange={(event) =>
+              updateFilter(column.key, {
+                search: event.target.value,
+              })
+            }
+          />
+          <div className="statistics-compare">
+            <select
+              value={filter.operator}
+              aria-label={`${column.label} 비교 조건`}
+              onChange={(event) =>
+                updateFilter(column.key, {
+                  operator: event.target.value,
+                })
+              }
+            >
+              {operators.map((operator) => (
+                <option value={operator.value} key={operator.value}>
+                  {operator.label}
+                </option>
+              ))}
+            </select>
+            <input
+              type={column.type === "number" ? "number" : "text"}
+              value={filter.compareValue}
+              placeholder="값"
+              aria-label={`${column.label} 비교 값`}
+              onChange={(event) =>
+                updateFilter(column.key, {
+                  compareValue: event.target.value,
+                })
+              }
+            />
+          </div>
+        </div>
+      </th>
+    );
+  };
+
+  const renderBodyCell = (row, column) => {
+    const cellValue = formatQualitativeDisplayValue(row, column);
+    const className =
+      column.cellType === "comparison"
+        ? `${column.className} ${getQualitativeComparisonClass(cellValue)}`
+        : column.className;
+
+    return (
+      <td className={className} title={cellValue} key={column.key}>
+        {column.cellType === "answer" ? (
+          <QualitativeAnswerCell value={row[column.key]} />
+        ) : column.cellType === "remark" ? (
+          <QualitativeRemarkCell value={row[column.key]} />
+        ) : column.cellType === "judgment" ? (
+          <QualitativeJudgmentCell value={row[column.key]} />
+        ) : (
+          cellValue
+        )}
+      </td>
+    );
+  };
+
+  return (
+    <section className="statistics-view qualitative-statistics-view">
+      <article className="panel statistics-panel qualitative-statistics-panel">
+        <div className="panel-head statistics-head">
+          <div>
+            <h3>검사항목별 정성 판정 비교</h3>
+            <p>예상 정답과 운영자 정답 및 판정 차이를 한 화면에서 확인합니다</p>
+          </div>
+          <div className="statistics-actions">
+            <span>
+              전체 {sourceRows.length.toLocaleString()}건 / 표시{" "}
+              {filteredRows.length.toLocaleString()}건
+            </span>
+            {hasPendingComparisons && <em>비교 조건 미적용</em>}
+            <button
+              type="button"
+              className="primary"
+              disabled={!hasPendingComparisons}
+              onClick={applyComparisonFilters}
+            >
+              비교 실행
+            </button>
+            <button
+              type="button"
+              disabled={!hasActiveFilters}
+              onClick={resetFilters}
+            >
+              필터 초기화
+            </button>
+            <button type="button" disabled={!hasActiveSort} onClick={resetSort}>
+              정렬 초기화
+            </button>
+            <button
+              type="button"
+              disabled={sortedRows.length === 0}
+              onClick={() =>
+                downloadQualitativeExcel({
+                  rows: sortedRows,
+                  sortConfig,
+                })
+              }
+            >
+              엑셀 다운로드
+            </button>
+          </div>
+        </div>
+
+        <div className="qualitative-table-wrap">
+          <table className="qualitative-table" aria-label="소변검사 정성 판정 비교">
+            <thead>
+              <tr>
+                {qualitativeBaseColumns.map((column) =>
+                  renderSortHeader(column, "qualitative-header-base", {
+                    rowSpan: 2,
+                  }),
+                )}
+                <th
+                  className="qualitative-header-base col-selection-group"
+                  colSpan={qualitativeSelectionColumns.length}
+                >
+                  결과선택기관수
+                </th>
+                <th
+                  className="qualitative-header-expected"
+                  colSpan={qualitativeExpectedColumns.length}
+                >
+                  예상 정답(INTENDED)
+                </th>
+                <th
+                  className="qualitative-header-operator"
+                  colSpan={qualitativeOperatorColumns.length}
+                >
+                  운영자 정답(INTENDED)
+                </th>
+                {renderSortHeader(
+                  qualitativeCompareColumn,
+                  "qualitative-header-compare",
+                  { rowSpan: 2 },
+                )}
+              </tr>
+              <tr>
+                {qualitativeSelectionColumns.map((column) =>
+                  renderSortHeader(column, "qualitative-header-base"),
+                )}
+                {qualitativeExpectedColumns.map((column) =>
+                  renderSortHeader(column, "qualitative-header-expected"),
+                )}
+                {qualitativeOperatorColumns.map((column) =>
+                  renderSortHeader(column, "qualitative-header-operator"),
+                )}
+              </tr>
+              <tr className="statistics-filter-row qualitative-filter-row">
+                {qualitativeColumns.map(renderFilterCell)}
+              </tr>
+            </thead>
+            <tbody>
+              {sortedRows.length > 0 ? (
+                sortedRows.map((row, index) => (
+                  <tr
+                    key={`${row["검사명"]}-${row["검체명"]}-${row["기준분류"]}-${row["보고된 결과"]}-${index}`}
+                  >
+                    {qualitativeColumns.map((column) =>
+                      renderBodyCell(row, column),
+                    )}
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td className="statistics-empty" colSpan={qualitativeColumns.length}>
+                    조건에 맞는 정성 통계 데이터가 없습니다
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </article>
+    </section>
+  );
+}
+
 function StatisticsDetail({ rows: providedRows } = {}) {
   const [statisticsScope, setStatisticsScope] = useState("all");
   const [filters, setFilters] = useState(createDefaultStatisticsFilters);
@@ -3090,10 +3698,10 @@ function TatStatusHeader({
   );
 }
 
-function ReportTabbar({ activeTab, onTabChange }) {
+function ReportTabbar({ activeTab, onTabChange, tabs = reportTabs }) {
   return (
     <nav className="tabbar" aria-label="분석 탭">
-      {reportTabs.map((tab) => (
+      {tabs.map((tab) => (
         <button
           type="button"
           className={activeTab === tab.id ? "active" : undefined}
@@ -3920,7 +4528,200 @@ function createUrineNonconformanceCards(rows) {
   return Array.from(cardMap.values());
 }
 
-function UrineNonconformanceAnalysis({ rows, institutionRows }) {
+function parseDistributionNumber(value) {
+  const numericValue = Number(String(value).replace(/,/g, ""));
+
+  return Number.isFinite(numericValue) ? numericValue : null;
+}
+
+function getDistributionSortNumber(label) {
+  const numericValue = Number(String(label).replace(/[^\d.-]/g, ""));
+
+  return Number.isFinite(numericValue) ? numericValue : Number.POSITIVE_INFINITY;
+}
+
+function sortDistributionRows(left, right) {
+  const leftNumber = getDistributionSortNumber(left.label);
+  const rightNumber = getDistributionSortNumber(right.label);
+
+  if (leftNumber !== rightNumber) return leftNumber - rightNumber;
+
+  return String(left.label).localeCompare(String(right.label), "ko", {
+    numeric: true,
+    sensitivity: "base",
+  });
+}
+
+function createFallbackResultDistributionRows({ card, specimen }) {
+  const specimenIndex = Math.max(
+    card.specimens.findIndex(
+      (cardSpecimen) => cardSpecimen.specimen === specimen.specimen,
+    ),
+    0,
+  );
+  const totalCount = card.participating || 1900;
+  const mockWeights = [
+    [0.001, 0.002, 0.006, 0.12, 0.78, 0.091],
+    [0, 0.001, 0.004, 0.16, 0.74, 0.095],
+    [0.002, 0.003, 0.011, 0.2, 0.68, 0.104],
+    [0.001, 0.004, 0.014, 0.24, 0.6, 0.141],
+  ];
+  const weights = mockWeights[specimenIndex % mockWeights.length];
+  const rows = urineResultDistributionAxisLabels.map((label, index) => ({
+    label,
+    count: Math.round(totalCount * weights[index]),
+  }));
+  const rowTotal = rows.reduce((sum, row) => sum + row.count, 0);
+
+  rows[rows.length - 1].count += totalCount - rowTotal;
+
+  return {
+    totalCount,
+    rows,
+  };
+}
+
+function createResultDistributionRows({ card, specimen, rows }) {
+  const specimenRows = rows.filter(
+    (row) =>
+      row.specimen === specimen.specimen &&
+      (row.testCode === card.testCode ||
+        row.testName === card.testName ||
+        row.testName === card.displayName),
+  );
+
+  if (specimenRows.length === 0) {
+    const fallbackDistribution = createFallbackResultDistributionRows({
+      card,
+      specimen,
+    });
+
+    return {
+      totalCount: fallbackDistribution.totalCount,
+      rows: fallbackDistribution.rows.sort(sortDistributionRows).map((row) => ({
+        ...row,
+        percent:
+          fallbackDistribution.totalCount > 0
+            ? (row.count / fallbackDistribution.totalCount) * 100
+            : 0,
+      })),
+    };
+  }
+
+  const distributionRows = specimenRows.map((row) => ({
+    label: formatUrineCell(row.result) || "미입력",
+    count: parseDistributionNumber(row.count) ?? 0,
+  }));
+  const csvTotal = parseDistributionNumber(specimenRows[0].total);
+  const countTotal = distributionRows.reduce((sum, row) => sum + row.count, 0);
+  const totalCount = csvTotal ?? countTotal;
+
+  return {
+    totalCount,
+    rows: distributionRows.sort(sortDistributionRows).map((row) => ({
+      ...row,
+      percent: totalCount > 0 ? (row.count / totalCount) * 100 : 0,
+    })),
+  };
+}
+
+function UrineResultDistributionChart({ card, specimen, resultDistributionRows }) {
+  const distribution = createResultDistributionRows({
+    card,
+    specimen,
+    rows: resultDistributionRows,
+  });
+
+  return (
+    <article className="result-distribution-card">
+      <div className="result-distribution-head">
+        <h4>결과값 분포({specimen.specimen})</h4>
+        <i aria-hidden="true">i</i>
+      </div>
+
+      <div className="result-distribution-bars">
+        {(() => {
+          const maxCount = Math.max(
+            ...distribution.rows.map((row) => row.count),
+            0,
+          );
+
+          return distribution.rows.map((row) => {
+            const width = Math.max(row.percent, row.count > 0 ? 0.8 : 0);
+
+            return (
+              <div
+                className={`result-distribution-row${
+                  row.count === maxCount ? " is-major" : ""
+                }`}
+                key={`${specimen.specimen}-${row.label}`}
+                title={`${row.label}: ${row.percent.toFixed(
+                  1,
+                )}% (${row.count.toLocaleString()}기관)`}
+              >
+                <span className="result-distribution-label">{row.label}</span>
+                <span className="result-distribution-track">
+                  <span
+                    className="result-distribution-fill"
+                    style={{ width: `${Math.min(width, 100)}%` }}
+                  />
+                </span>
+                <strong>
+                  {row.percent.toFixed(1)}% ({row.count.toLocaleString()})
+                </strong>
+              </div>
+            );
+          });
+        })()}
+      </div>
+
+      <div className="result-distribution-axis" aria-hidden="true">
+        <span>0%</span>
+        <span>25%</span>
+        <span>50%</span>
+        <span>75%</span>
+        <span>100%</span>
+      </div>
+    </article>
+  );
+}
+
+function UrineResultDistributionSection({
+  selectedCard,
+  resultDistributionRows,
+  institutionTarget,
+}) {
+  if (!selectedCard) return null;
+
+  return (
+    <div className="result-distribution-section">
+      <div className="institution-list-head">
+        <h4>{selectedCard.displayName} 검체별 결과값 분포</h4>
+        <span>검체 {selectedCard.specimens.length.toLocaleString()}개</span>
+      </div>
+      <div className="result-distribution-grid">
+        {selectedCard.specimens.map((specimen) => (
+          <div
+            className={
+              institutionTarget?.specimen === specimen.specimen
+                ? "result-distribution-shell selected"
+                : "result-distribution-shell"
+            }
+            key={specimen.specimen}
+          >
+            <UrineResultDistributionChart
+              card={selectedCard}
+              specimen={specimen}
+              resultDistributionRows={resultDistributionRows}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function UrineNonconformanceAnalysis({ rows, institutionRows, resultDistributionRows }) {
   const [selectedTestCode, setSelectedTestCode] = useState("");
   const [institutionTarget, setInstitutionTarget] = useState(null);
   const cards = createUrineNonconformanceCards(rows);
@@ -4064,6 +4865,14 @@ function UrineNonconformanceAnalysis({ rows, institutionRows }) {
             }
           />
         )}
+
+        {selectedCard && (
+          <UrineResultDistributionSection
+            selectedCard={selectedCard}
+            resultDistributionRows={resultDistributionRows}
+            institutionTarget={institutionTarget}
+          />
+        )}
       </article>
     </section>
   );
@@ -4084,7 +4893,11 @@ function NewPage({
   const [urineInstitutionRows, setUrineInstitutionRows] = useState([]);
   const [urineTrendRows, setUrineTrendRows] = useState([]);
   const [urineNonconformanceRows, setUrineNonconformanceRows] = useState([]);
+  const [urineResultDistributionRows, setUrineResultDistributionRows] =
+    useState([]);
   const [urineStatisticsRows, setUrineStatisticsRows] = useState([]);
+  const [urineQualitativeStatisticsRows, setUrineQualitativeStatisticsRows] =
+    useState([]);
   const [urineNonconformanceInstitutionRows, setUrineNonconformanceInstitutionRows] =
     useState([]);
   const activeTabLabel = reportTabs.find((tab) => tab.id === activeTab)?.label;
@@ -4103,7 +4916,13 @@ function NewPage({
       fetch(getDataUrl("urine-statistics-quantitative.csv")).then((response) =>
         response.text(),
       ),
+      fetch(getDataUrl("urine-statistics-qualitative.csv")).then((response) =>
+        response.text(),
+      ),
       fetch(getDataUrl("urine-nonconformance.csv")).then((response) =>
+        response.text(),
+      ),
+      fetch(getDataUrl("urine-result-distribution.csv")).then((response) =>
         response.text(),
       ),
       fetch(getDataUrl("urine-nonconformance-institutions.csv")).then(
@@ -4116,7 +4935,9 @@ function NewPage({
           institutionCsv,
           trendCsv,
           statisticsCsv,
+          qualitativeStatisticsCsv,
           nonconformanceCsv,
+          resultDistributionCsv,
           nonconformanceInstitutionCsv,
         ]) => {
         if (!isMounted) return;
@@ -4124,7 +4945,9 @@ function NewPage({
         setUrineInstitutionRows(parseCsv(institutionCsv));
         setUrineTrendRows(parseCsv(trendCsv));
         setUrineStatisticsRows(parseCsv(statisticsCsv));
+        setUrineQualitativeStatisticsRows(parseCsv(qualitativeStatisticsCsv));
         setUrineNonconformanceRows(parseCsv(nonconformanceCsv));
+        setUrineResultDistributionRows(parseCsv(resultDistributionCsv));
         setUrineNonconformanceInstitutionRows(
           parseCsv(nonconformanceInstitutionCsv),
         );
@@ -4136,7 +4959,9 @@ function NewPage({
         setUrineInstitutionRows([]);
         setUrineTrendRows([]);
         setUrineStatisticsRows([]);
+        setUrineQualitativeStatisticsRows([]);
         setUrineNonconformanceRows([]);
+        setUrineResultDistributionRows([]);
         setUrineNonconformanceInstitutionRows([]);
       });
 
@@ -4178,9 +5003,12 @@ function NewPage({
           <UrineNonconformanceAnalysis
             rows={urineNonconformanceRows}
             institutionRows={urineNonconformanceInstitutionRows}
+            resultDistributionRows={urineResultDistributionRows}
           />
         ) : activeTab === "statistics-quantitative" ? (
           <StatisticsDetail rows={urineStatisticsRows} />
+        ) : activeTab === "statistics-qualitative" ? (
+          <UrineQualitativeStatistics rows={urineQualitativeStatisticsRows} />
         ) : (
           <section className="panel tab-empty-panel" aria-label="새 페이지 탭 영역">
             <h2>{activeTabLabel}</h2>
@@ -4204,7 +5032,7 @@ function App() {
   const [activeTab, setActiveTab] = useState("overview");
   const [isStatisticsConfirmed, setIsStatisticsConfirmed] = useState(false);
   const [statisticsDialog, setStatisticsDialog] = useState(null);
-  const activeTabLabel = reportTabs.find((tab) => tab.id === activeTab)?.label;
+  const activeTabLabel = dashboardTabs.find((tab) => tab.id === activeTab)?.label;
 
   useEffect(() => {
     const syncActivePageWithUrl = () => {
@@ -4225,6 +5053,12 @@ function App() {
         ? "소변검사 대시보드"
         : "일반화학검사 대시보드";
   }, [activePage]);
+
+  useEffect(() => {
+    if (!dashboardTabs.some((tab) => tab.id === activeTab)) {
+      setActiveTab("overview");
+    }
+  }, [activeTab]);
 
   const openStatisticsConfirm = () => {
     if (isStatisticsConfirmed) return;
@@ -4274,7 +5108,11 @@ function App() {
         onOpenStatisticsConfirm={openStatisticsConfirm}
         onResetStatisticsConfirm={resetStatisticsConfirm}
       />
-      <ReportTabbar activeTab={activeTab} onTabChange={setActiveTab} />
+      <ReportTabbar
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        tabs={dashboardTabs}
+      />
 
       <main className="dashboard">
         {activeTab === "overview" ? (
@@ -4327,10 +5165,6 @@ function App() {
           <NonconformanceAnalysis />
         ) : activeTab === "statistics-quantitative" ? (
           <StatisticsDetail />
-        ) : activeTab === "statistics-qualitative" ? (
-          <section className="panel tab-empty-panel">
-            <h2>{activeTabLabel}</h2>
-          </section>
         ) : activeTab === "trend" ? (
           <TrendAnalysis />
         ) : (
