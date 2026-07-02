@@ -5245,12 +5245,301 @@ function UrineResultDistributionSection({
   );
 }
 
+function parseSdiNumber(value) {
+  const numericValue = Number(String(value ?? "").replace(/,/g, ""));
+
+  return Number.isFinite(numericValue) ? numericValue : null;
+}
+
+function clampSdiForChart(value) {
+  return Math.max(-6, Math.min(6, value));
+}
+
+function averageValues(values) {
+  if (values.length === 0) return null;
+
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function createSpecificGravitySdiChartRows(rows) {
+  const specimenMap = new Map();
+
+  rows
+    .filter((row) => row.testName === "-Specific Gravity")
+    .forEach((row) => {
+      if (!specimenMap.has(row.specimen)) {
+        specimenMap.set(row.specimen, {
+          specimen: row.specimen,
+          standardValues: [],
+        });
+      }
+
+      const specimenRow = specimenMap.get(row.specimen);
+      const standardSdi = parseSdiNumber(row.standardSdi);
+
+      if (standardSdi !== null) {
+        specimenRow.standardValues.push(clampSdiForChart(standardSdi));
+      }
+    });
+
+  return Array.from(specimenMap.values())
+    .sort((left, right) =>
+      String(left.specimen).localeCompare(String(right.specimen), "ko", {
+        numeric: true,
+        sensitivity: "base",
+      }),
+    )
+    .map((row) => ({
+      specimen: row.specimen,
+      standardSdi: averageValues(row.standardValues),
+      standardCount: row.standardValues.length,
+    }));
+}
+
+function UrineSpecificGravitySdiChart({ rows }) {
+  const canvasRef = useRef(null);
+  const chartRef = useRef(null);
+  const scrollRef = useRef(null);
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const sdiRows = createSpecificGravitySdiChartRows(rows);
+  const baseChartWidth = Math.max(980, sdiRows.length * 190);
+  const chartWidth = Math.round(baseChartWidth * zoomLevel);
+  const clampZoom = (nextZoom) => Math.min(2, Math.max(0.75, nextZoom));
+
+  const changeZoom = (nextZoom) => {
+    setZoomLevel(clampZoom(nextZoom));
+  };
+
+  useEffect(() => {
+    if (!canvasRef.current) return undefined;
+
+    const chart = new Chart(canvasRef.current, {
+      type: "bar",
+      data: {
+        labels: sdiRows.map((row) => row.specimen),
+        datasets: [
+          {
+            label: "기준SDI",
+            data: sdiRows.map((row) => row.standardSdi),
+            backgroundColor: sdiRows.map(
+              (row, index) =>
+                urineUnacceptableRateData.specimens.find(
+                  (specimen) => specimen.key === row.specimen,
+                )?.color ??
+                urineUnacceptableRateData.specimens[index]?.color ??
+                "#0869f4",
+            ),
+            borderColor: sdiRows.map(
+              (row, index) =>
+                urineUnacceptableRateData.specimens.find(
+                  (specimen) => specimen.key === row.specimen,
+                )?.color ??
+                urineUnacceptableRateData.specimens[index]?.color ??
+                "#0869f4",
+            ),
+            borderWidth: 1,
+            borderRadius: 2,
+            barPercentage: 0.72,
+            categoryPercentage: 0.72,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        interaction: {
+          intersect: false,
+          mode: "index",
+        },
+        plugins: {
+          legend: {
+            display: false,
+          },
+          tooltip: {
+            callbacks: {
+              label(item) {
+                const sourceRow = sdiRows[item.dataIndex];
+
+                return `${item.dataset.label}: ${Number(item.parsed.y).toFixed(
+                  2,
+                )} (${sourceRow.standardCount.toLocaleString()}건)`;
+              },
+            },
+          },
+        },
+        scales: {
+          x: {
+            title: {
+              display: true,
+              text: "검체명",
+              color: "#25304a",
+              font: {
+                size: 12,
+                weight: "700",
+              },
+            },
+            grid: {
+              display: false,
+            },
+            ticks: {
+              color: "#1f2d4d",
+              font: {
+                size: 11,
+                weight: "700",
+              },
+            },
+          },
+          y: {
+            min: -6,
+            max: 6,
+            title: {
+              display: true,
+              text: "SDI",
+              color: "#25304a",
+              font: {
+                size: 12,
+                weight: "700",
+              },
+            },
+            border: {
+              color: "#cfd7e6",
+            },
+            grid: {
+              color(context) {
+                return context.tick.value === 0 ? "#8792a5" : "#dce3ed";
+              },
+            },
+            ticks: {
+              color: "#1f2d4d",
+              font: {
+                size: 11,
+              },
+              stepSize: 2,
+            },
+          },
+        },
+      },
+    });
+
+    chartRef.current = chart;
+
+    return () => {
+      chart.destroy();
+      chartRef.current = null;
+    };
+  }, [sdiRows]);
+
+  useEffect(() => {
+    chartRef.current?.resize();
+  }, [chartWidth]);
+
+  useEffect(() => {
+    const scrollNode = scrollRef.current;
+    if (!scrollNode) return undefined;
+
+    const handleWheel = (event) => {
+      if (!event.ctrlKey) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      setZoomLevel((currentZoom) =>
+        clampZoom(currentZoom + (event.deltaY < 0 ? 0.25 : -0.25)),
+      );
+    };
+
+    scrollNode.addEventListener("wheel", handleWheel, { passive: false });
+
+    return () => {
+      scrollNode.removeEventListener("wheel", handleWheel);
+    };
+  }, []);
+
+  if (sdiRows.length === 0) {
+    return <div className="urine-detail-empty">표시할 SDI 데이터가 없습니다.</div>;
+  }
+
+  return (
+    <div className="sdi-chart">
+      <div className="chart-toolbar">
+        <div className="chart-legend" aria-label="Specific Gravity SDI 범례">
+          {sdiRows.map((row, index) => {
+            const color =
+              urineUnacceptableRateData.specimens.find(
+                (specimen) => specimen.key === row.specimen,
+              )?.color ??
+              urineUnacceptableRateData.specimens[index]?.color ??
+              "#0869f4";
+
+            return (
+              <span key={row.specimen}>
+                <i style={{ backgroundColor: color }} />
+                {row.specimen}
+              </span>
+            );
+          })}
+        </div>
+        <div className="chart-zoom" aria-label="SDI 그래프 확대 축소">
+          <button
+            type="button"
+            onClick={() => changeZoom(zoomLevel - 0.25)}
+            aria-label="SDI 그래프 축소"
+          >
+            -
+          </button>
+          <input
+            type="range"
+            min="75"
+            max="200"
+            step="25"
+            value={Math.round(zoomLevel * 100)}
+            aria-label="SDI 그래프 확대율"
+            onChange={(event) => changeZoom(Number(event.target.value) / 100)}
+          />
+          <button
+            type="button"
+            onClick={() => changeZoom(zoomLevel + 0.25)}
+            aria-label="SDI 그래프 확대"
+          >
+            +
+          </button>
+          <button
+            type="button"
+            onClick={() => changeZoom(1)}
+            aria-label="SDI 그래프 확대 초기화"
+          >
+            100%
+          </button>
+        </div>
+      </div>
+      <p className="sdi-selection">선택 검사: Specific Gravity</p>
+      <div
+        ref={scrollRef}
+        className="chart-scroll"
+        aria-label="Specific Gravity SDI 그래프 스크롤 영역"
+      >
+        <div className="sdi-canvas" style={{ width: `${chartWidth}px` }}>
+          <canvas
+            ref={canvasRef}
+            aria-label="Specific Gravity 검체별 SDI 분포 막대그래프"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function isSpecificGravityCard(card) {
+  return card?.testName === "-Specific Gravity";
+}
+
 function UrineNonconformanceAnalysis({ rows, institutionRows, resultDistributionRows }) {
   const [selectedTestCode, setSelectedTestCode] = useState("");
   const [institutionTarget, setInstitutionTarget] = useState(null);
   const cards = createUrineNonconformanceCards(rows);
   const selectedCard =
     cards.find((card) => card.testCode === selectedTestCode) ?? cards[0];
+  const selectedCardIsSpecificGravity = isSpecificGravityCard(selectedCard);
   const selectedInstitutionRows = institutionTarget
     ? institutionRows.filter(
         (row) =>
@@ -5390,7 +5679,7 @@ function UrineNonconformanceAnalysis({ rows, institutionRows, resultDistribution
           />
         )}
 
-        {selectedCard && (
+        {selectedCard && !selectedCardIsSpecificGravity && (
           <UrineResultDistributionSection
             selectedCard={selectedCard}
             resultDistributionRows={resultDistributionRows}
@@ -5398,6 +5687,19 @@ function UrineNonconformanceAnalysis({ rows, institutionRows, resultDistribution
           />
         )}
       </article>
+
+      {selectedCardIsSpecificGravity && (
+        <article className="panel sdi-panel urine-specific-gravity-sdi-panel">
+          <div className="panel-head">
+            <div>
+              <h3>Specific Gravity SDI 분포</h3>
+              <p>일반화학 부적합분석의 SDI 그래프 형식으로 표시합니다</p>
+            </div>
+            <span>단위: SDI</span>
+          </div>
+          <UrineSpecificGravitySdiChart rows={institutionRows} />
+        </article>
+      )}
     </section>
   );
 }
