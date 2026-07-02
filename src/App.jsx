@@ -1897,6 +1897,7 @@ function NonconformanceInstitutionGrid({
   columns = nonconformanceInstitutionColumns,
 }) {
   const [gridTooltip, setGridTooltip] = useState(null);
+  const [institutionPage, setInstitutionPage] = useState(1);
   const hasAnswerColumn = columns.some((column) => column.key === "answer");
   const showsOnlyResultAndAnswer =
     hasAnswerColumn &&
@@ -1904,6 +1905,32 @@ function NonconformanceInstitutionGrid({
   const rowClassName = `institution-grid-row${
     hasAnswerColumn ? " has-answer-column" : ""
   }${showsOnlyResultAndAnswer ? " sediment-result-grid" : ""}`;
+  const institutionTotalPages = Math.max(
+    1,
+    Math.ceil(rows.length / institutionPageSize),
+  );
+  const normalizedInstitutionPage = Math.min(
+    institutionPage,
+    institutionTotalPages,
+  );
+  const institutionStartIndex =
+    (normalizedInstitutionPage - 1) * institutionPageSize;
+  const visibleRows = rows.slice(
+    institutionStartIndex,
+    institutionStartIndex + institutionPageSize,
+  );
+
+  useEffect(() => {
+    setInstitutionPage(1);
+    setGridTooltip(null);
+  }, [rows, selectedTest.code, selectedSpecimen.key]);
+
+  const moveInstitutionPage = (nextPage) => {
+    setInstitutionPage(
+      Math.min(Math.max(nextPage, 1), institutionTotalPages),
+    );
+    setGridTooltip(null);
+  };
 
   const hideGridTooltip = () => {
     setGridTooltip(null);
@@ -1997,21 +2024,70 @@ function NonconformanceInstitutionGrid({
             );
           })}
         </div>
-        {rows.map((row, index) => (
+        {visibleRows.map((row, index) => (
           <div
             className={rowClassName}
             role="row"
-            key={`${row.code}-${row.specimenKey ?? row.specimen ?? selectedSpecimen.key}-${index}`}
+            key={`${row.code}-${row.specimenKey ?? row.specimen ?? selectedSpecimen.key}-${institutionStartIndex + index}`}
           >
             {columns.map((column) =>
               renderGridCell(
-                column.key === "no" ? index + 1 : row[column.key],
+                column.key === "no"
+                  ? institutionStartIndex + index + 1
+                  : row[column.key],
                 column.key,
               ),
             )}
           </div>
         ))}
       </div>
+      {rows.length > institutionPageSize && (
+        <div className="institution-pagination" aria-label="기관 목록 페이지">
+          <button
+            type="button"
+            aria-label="이전 페이지"
+            disabled={normalizedInstitutionPage === 1}
+            onClick={() => moveInstitutionPage(normalizedInstitutionPage - 1)}
+          >
+            ‹
+          </button>
+          {Array.from({ length: institutionTotalPages }, (_, index) => {
+            const pageNumber = index + 1;
+
+            return (
+              <button
+                type="button"
+                className={
+                  pageNumber === normalizedInstitutionPage ? "active" : undefined
+                }
+                aria-current={
+                  pageNumber === normalizedInstitutionPage ? "page" : undefined
+                }
+                key={pageNumber}
+                onClick={() => moveInstitutionPage(pageNumber)}
+              >
+                {pageNumber}
+              </button>
+            );
+          })}
+          <button
+            type="button"
+            aria-label="다음 페이지"
+            disabled={normalizedInstitutionPage === institutionTotalPages}
+            onClick={() => moveInstitutionPage(normalizedInstitutionPage + 1)}
+          >
+            ›
+          </button>
+          <span>
+            전체 {rows.length.toLocaleString()}개 중{" "}
+            {institutionStartIndex + 1}-
+            {Math.min(
+              institutionStartIndex + institutionPageSize,
+              rows.length,
+            ).toLocaleString()} 표시
+          </span>
+        </div>
+      )}
       {gridTooltip && (
         <div
           className={`grid-cell-tooltip ${
@@ -3773,6 +3849,33 @@ function UrineOverview({ onOpenImageSpecimen }) {
   );
 }
 
+function getUrineXAxisLabelIndex(chart, event) {
+  const x = event.x ?? event.native?.offsetX;
+  const y = event.y ?? event.native?.offsetY;
+  const xScale = chart.scales.x;
+
+  if (x === undefined || y === undefined || !xScale) return null;
+  if (y < chart.chartArea.bottom - 2 || y > chart.height) return null;
+
+  const lastIndex = xScale.ticks.length - 1;
+
+  for (let index = 0; index <= lastIndex; index += 1) {
+    const currentX = xScale.getPixelForTick(index);
+    const left =
+      index === 0
+        ? xScale.left
+        : (xScale.getPixelForTick(index - 1) + currentX) / 2;
+    const right =
+      index === lastIndex
+        ? xScale.right
+        : (currentX + xScale.getPixelForTick(index + 1)) / 2;
+
+    if (x >= left && x <= right) return index;
+  }
+
+  return null;
+}
+
 function UrineUnacceptableRateChart({ onSelect }) {
   const canvasRef = useRef(null);
   const chartRef = useRef(null);
@@ -3808,17 +3911,23 @@ function UrineUnacceptableRateChart({ onSelect }) {
         responsive: true,
         maintainAspectRatio: false,
         animation: false,
-        onClick(_event, elements) {
-          if (!elements.length) return;
-
-          const [{ datasetIndex, index }] = elements;
-          const value = urineUnacceptableRateData.tests[index].values[datasetIndex];
-          if (value === null || value === undefined) return;
+        onClick(event, _elements, chartInstance) {
+          const testIndex = getUrineXAxisLabelIndex(chartInstance, event);
+          if (testIndex === null) return;
 
           onSelect({
-            testIndex: index,
-            specimenIndex: datasetIndex,
+            testIndex,
+            specimenIndex: 0,
           });
+        },
+        onHover(event, _elements, chartInstance) {
+          const target = event.native?.target;
+          if (!target) return;
+
+          target.style.cursor =
+            getUrineXAxisLabelIndex(chartInstance, event) === null
+              ? "default"
+              : "pointer";
         },
         interaction: {
           intersect: true,
@@ -3964,7 +4073,10 @@ function UrineUnacceptableRateChart({ onSelect }) {
           className="chart-scroll"
           aria-label="소변검사 검사항목별 Unacceptable Rate 그래프 스크롤 영역"
         >
-          <div className="chart-canvas" style={{ width: `${chartWidth}px` }}>
+          <div
+            className="chart-canvas"
+            style={{ width: `max(100%, ${chartWidth}px)` }}
+          >
             <canvas
               ref={canvasRef}
               aria-label="소변검사 검사항목별 Unacceptable Rate 막대그래프"
@@ -4057,62 +4169,82 @@ function UrineMakerDoughnutChart({ makers }) {
 }
 
 function UrineSelectedTestDetail({ selection, doughnutRows, institutionRows }) {
-  const [showInstitutionGrid, setShowInstitutionGrid] = useState(false);
+  const [activeInstitutionSpecimenKey, setActiveInstitutionSpecimenKey] =
+    useState(null);
   const [institutionPage, setInstitutionPage] = useState(1);
   const [gridTooltip, setGridTooltip] = useState(null);
   const selectedTest = urineUnacceptableRateData.tests[selection.testIndex];
-  const selectedSpecimen =
-    urineUnacceptableRateData.specimens[selection.specimenIndex];
   const selectedTestKey = getUrineTestKey(selectedTest);
-  const selectedMakerRows = doughnutRows.filter(
-    (row) =>
-      row["검체명"] === selectedSpecimen.key &&
-      row["검사명"] === selectedTestKey &&
-      Number(row["Unacceptable rate"]) > 0,
-  );
-  const selectedInstitutionRows = institutionRows.filter(
-    (row) =>
-      row["검체명"] === selectedSpecimen.key && row["검사명"] === selectedTestKey,
-  );
-  const makers = selectedMakerRows.map((row, index) => {
-    const makerName = row["제조사"];
-    const institutionCount = selectedInstitutionRows.filter(
-      (institution) => institution["제조사명"] === makerName,
-    ).length;
+  const selectedSpecimenDetails = urineUnacceptableRateData.specimens
+    .map((specimen, specimenIndex) => {
+      const value = selectedTest.values[specimenIndex];
+      const selectedMakerRows = doughnutRows.filter(
+        (row) =>
+          row["검체명"] === specimen.key &&
+          row["검사명"] === selectedTestKey &&
+          Number(row["Unacceptable rate"]) > 0,
+      );
+      const selectedInstitutionRows = institutionRows.filter(
+        (row) =>
+          row["검체명"] === specimen.key && row["검사명"] === selectedTestKey,
+      );
+      const makers = selectedMakerRows.map((row, index) => {
+        const makerName = row["제조사"];
+        const institutionCount = selectedInstitutionRows.filter(
+          (institution) => institution["제조사명"] === makerName,
+        ).length;
 
-    return {
-      name: makerName,
-      rate: Number(row["Unacceptable rate"]),
-      count: institutionCount,
-      color: urineMakerColors[index % urineMakerColors.length],
-    };
-  });
-  const total = selectedInstitutionRows.length;
+        return {
+          name: makerName,
+          rate: Number(row["Unacceptable rate"]),
+          count: institutionCount,
+          color: urineMakerColors[index % urineMakerColors.length],
+        };
+      });
+
+      return {
+        specimen,
+        value,
+        makers,
+        institutionRows: selectedInstitutionRows,
+      };
+    })
+    .filter(
+      (detail) =>
+        (detail.value !== null && detail.value !== undefined) ||
+        detail.makers.length > 0 ||
+        detail.institutionRows.length > 0,
+    );
+  const activeDetail = selectedSpecimenDetails.find(
+    (detail) => detail.specimen.key === activeInstitutionSpecimenKey,
+  );
+  const activeInstitutionRows = activeDetail?.institutionRows ?? [];
   const institutionTotalPages = Math.max(
     1,
-    Math.ceil(selectedInstitutionRows.length / institutionPageSize),
+    Math.ceil(activeInstitutionRows.length / institutionPageSize),
   );
   const institutionStartIndex = (institutionPage - 1) * institutionPageSize;
-  const visibleInstitutionRows = selectedInstitutionRows.slice(
+  const visibleInstitutionRows = activeInstitutionRows.slice(
     institutionStartIndex,
     institutionStartIndex + institutionPageSize,
   );
   const institutionEndIndex = Math.min(
     institutionStartIndex + visibleInstitutionRows.length,
-    selectedInstitutionRows.length,
+    activeInstitutionRows.length,
   );
 
   useEffect(() => {
-    setShowInstitutionGrid(false);
+    setActiveInstitutionSpecimenKey(null);
     setInstitutionPage(1);
     setGridTooltip(null);
-  }, [selection.testIndex, selection.specimenIndex]);
+  }, [selection.testIndex]);
 
-  const toggleInstitutionGrid = () => {
-    if (!showInstitutionGrid) {
-      setInstitutionPage(1);
-    }
-    setShowInstitutionGrid((current) => !current);
+  const toggleInstitutionGrid = (specimenKey) => {
+    setGridTooltip(null);
+    setInstitutionPage(1);
+    setActiveInstitutionSpecimenKey((current) =>
+      current === specimenKey ? null : specimenKey,
+    );
   };
 
   const moveInstitutionPage = (nextPage) => {
@@ -4177,58 +4309,91 @@ function UrineSelectedTestDetail({ selection, doughnutRows, institutionRows }) {
           <strong>{selectedTest.name}</strong>
         </div>
         <div>
-          <span>선택 검체</span>
-          <strong>{selectedSpecimen.key}</strong>
+          <span>검체 수</span>
+          <strong>{selectedSpecimenDetails.length}개</strong>
         </div>
       </div>
 
-      <h4>제조사별 Unacceptable Rate ({selectedSpecimen.key} 기준)</h4>
-      {makers.length > 0 ? (
-        <div className="donut-layout">
-          <div
-            className="donut-box"
-            role="button"
-            tabIndex={0}
-            aria-controls="urine-institution-list-grid"
-            aria-expanded={showInstitutionGrid}
-            onClick={toggleInstitutionGrid}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                toggleInstitutionGrid();
-              }
-            }}
+      <div className="urine-specimen-detail-list">
+        {selectedSpecimenDetails.map((detail) => (
+          <section
+            className="urine-specimen-detail-card"
+            key={detail.specimen.key}
           >
-            <UrineMakerDoughnutChart makers={makers} />
-            <div className="donut-center" aria-hidden="true">
-              <strong>총 {total}개</strong>
-              <span>기관</span>
-            </div>
-          </div>
-          <div className="maker-list">
-            {makers.map((maker) => (
-              <div className="maker-item" key={maker.name}>
-                <i style={{ backgroundColor: maker.color }} />
-                <b>{maker.name}</b>
-                <span>
-                  {maker.count} 기관 ({maker.rate.toFixed(2)}%)
-                </span>
+            <h4>
+              제조사별 Unacceptable Rate ({detail.specimen.key} 기준)
+              {detail.value !== null && detail.value !== undefined && (
+                <span>{Number(detail.value).toFixed(2)}%</span>
+              )}
+            </h4>
+            {detail.makers.length > 0 ? (
+              <div className="donut-layout urine-specimen-donut-layout">
+                <div
+                  className={`donut-box urine-specimen-donut-box ${
+                    detail.institutionRows.length === 0 ? "is-static" : ""
+                  }`}
+                  role={detail.institutionRows.length > 0 ? "button" : undefined}
+                  tabIndex={detail.institutionRows.length > 0 ? 0 : undefined}
+                  aria-controls="urine-institution-list-grid"
+                  aria-expanded={
+                    activeInstitutionSpecimenKey === detail.specimen.key
+                  }
+                  onClick={() => {
+                    if (detail.institutionRows.length > 0) {
+                      toggleInstitutionGrid(detail.specimen.key);
+                    }
+                  }}
+                  onKeyDown={(event) => {
+                    if (
+                      detail.institutionRows.length > 0 &&
+                      (event.key === "Enter" || event.key === " ")
+                    ) {
+                      event.preventDefault();
+                      toggleInstitutionGrid(detail.specimen.key);
+                    }
+                  }}
+                >
+                  <UrineMakerDoughnutChart makers={detail.makers} />
+                  <div className="donut-center" aria-hidden="true">
+                    <strong>총 {detail.institutionRows.length}개</strong>
+                    <span>기관</span>
+                  </div>
+                </div>
+                <div className="maker-list">
+                  {detail.makers.map((maker) => (
+                    <div
+                      className="maker-item"
+                      key={`${detail.specimen.key}-${maker.name}`}
+                    >
+                      <i style={{ backgroundColor: maker.color }} />
+                      <b>{maker.name}</b>
+                      <span>
+                        {maker.count} 기관 ({maker.rate.toFixed(2)}%)
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            ))}
-          </div>
-        </div>
-      ) : (
-        <div className="urine-detail-empty">표시할 제조사 데이터가 없습니다.</div>
-      )}
+            ) : (
+              <div className="urine-detail-empty">
+                표시할 제조사 데이터가 없습니다.
+              </div>
+            )}
+          </section>
+        ))}
+      </div>
 
-      {showInstitutionGrid && (
+      {activeDetail && (
         <div className="institution-list" id="urine-institution-list-grid">
           <div className="institution-list-head">
-            <h4>Unacceptable 기관 목록</h4>
+            <h4>
+              {selectedTest.name} / {activeDetail.specimen.key} Unacceptable 기관
+              목록
+            </h4>
             <div className="institution-list-actions">
               <span>
-                전체 {selectedInstitutionRows.length}개 중{" "}
-                {selectedInstitutionRows.length > 0
+                전체 {activeInstitutionRows.length}개 중{" "}
+                {activeInstitutionRows.length > 0
                   ? `${institutionStartIndex + 1}-${institutionEndIndex}`
                   : "0"}
                 표시
@@ -4239,8 +4404,8 @@ function UrineSelectedTestDetail({ selection, doughnutRows, institutionRows }) {
                 onClick={() =>
                   downloadUrineInstitutionCsv({
                     selectedTest,
-                    selectedSpecimen,
-                    rows: selectedInstitutionRows,
+                    selectedSpecimen: activeDetail.specimen,
+                    rows: activeInstitutionRows,
                   })
                 }
               >
@@ -4355,80 +4520,102 @@ function UrineSelectedTestDetail({ selection, doughnutRows, institutionRows }) {
 function UrineTrendLineChart({ selection, trendRows }) {
   const canvasRef = useRef(null);
   const selectedTest = urineUnacceptableRateData.tests[selection.testIndex];
-  const selectedSpecimen =
-    urineUnacceptableRateData.specimens[selection.specimenIndex];
   const selectedTestKey = getUrineTestKey(selectedTest);
-  const selectedSpecimenOrder = getUrineSpecimenOrder(selectedSpecimen.key);
-  const selectedRows = trendRows
-    .filter(
-      (row) =>
-        row["검사명"] === selectedTestKey &&
-        Number(row["횟수"]) === selectedSpecimenOrder,
-    )
-    .map((row) => ({
-      period: `${row["회차년도"]}-${row["회차"]}`,
-      count: Number(String(row["Unaccep"]).replace(/,/g, "")),
-    }))
-    .sort((left, right) => left.period.localeCompare(right.period));
+  const selectedSpecimenCount = selectedTest.values.filter(
+    (value) => value !== null && value !== undefined,
+  ).length;
 
   useEffect(() => {
     if (!canvasRef.current) return undefined;
 
-    const lollipopLines = {
-      id: "urineLollipopLines",
-      beforeDatasetsDraw(chart) {
-        const meta = chart.getDatasetMeta(0);
-        const yScale = chart.scales.y;
-        const baseY = yScale.getPixelForValue(0);
-        const { ctx } = chart;
+    const selectedRows = trendRows.filter(
+      (row) => row["검사명"] === selectedTestKey,
+    );
+    const periods = Array.from(
+      new Set(selectedRows.map((row) => `${row["회차년도"]}-${row["회차"]}`)),
+    ).sort(
+      (left, right) =>
+        getUrineTrendPeriodSortValue(left) -
+        getUrineTrendPeriodSortValue(right),
+    );
+    const rowsBySpecimen = new Map();
 
-        ctx.save();
-        ctx.strokeStyle = "#0d6efd";
-        ctx.lineWidth = 3;
-        meta.data.forEach((point) => {
-          const props = point.getProps(["x", "y"], true);
-          ctx.beginPath();
-          ctx.moveTo(props.x, baseY);
-          ctx.lineTo(props.x, props.y);
-          ctx.stroke();
-        });
-        ctx.restore();
-      },
-    };
+    selectedRows.forEach((row) => {
+      const specimenOrder = Number(row["횟수"]);
+      const count = Number(String(row["Unaccep"]).replace(/,/g, ""));
+      const period = `${row["회차년도"]}-${row["회차"]}`;
 
-    const maxCount = Math.max(10, ...selectedRows.map((row) => row.count));
+      if (!Number.isFinite(specimenOrder) || !Number.isFinite(count)) return;
+      if (!rowsBySpecimen.has(specimenOrder)) {
+        rowsBySpecimen.set(specimenOrder, new Map());
+      }
+
+      rowsBySpecimen.get(specimenOrder).set(period, count);
+    });
+
+    const specimenDetails = urineUnacceptableRateData.specimens
+      .map((specimen, specimenIndex) => ({
+        specimen,
+        value: selectedTest.values[specimenIndex],
+      }))
+      .filter(
+        (detail) => detail.value !== null && detail.value !== undefined,
+      );
+    const maxCount = Math.max(
+      10,
+      ...Array.from(rowsBySpecimen.values()).flatMap((rowsByPeriod) =>
+        Array.from(rowsByPeriod.values()),
+      ),
+    );
+
     const chart = new Chart(canvasRef.current, {
       type: "line",
       data: {
-        labels: selectedRows.map((row) => row.period),
-        datasets: [
-          {
-            label: "Unacceptable 기관 수",
-            data: selectedRows.map((row) => row.count),
-            borderColor: "#0d6efd",
-            backgroundColor: "#fff",
+        labels: periods,
+        datasets: specimenDetails.map(({ specimen }) => {
+          const specimenOrder = getUrineSpecimenOrder(specimen.key);
+          const rowsByPeriod = rowsBySpecimen.get(specimenOrder) ?? new Map();
+
+          return {
+            label: specimen.key,
+            data: periods.map((period) => rowsByPeriod.get(period) ?? null),
+            borderColor: specimen.color,
+            backgroundColor: specimen.color,
             pointBackgroundColor: "#fff",
-            pointBorderColor: "#0d6efd",
-            pointBorderWidth: 3,
-            pointRadius: 6,
-            pointHoverRadius: 7,
-            showLine: false,
-          },
-        ],
+            pointBorderColor: specimen.color,
+            pointBorderWidth: 2,
+            pointRadius: 4,
+            pointHoverRadius: 5,
+            borderWidth: 2,
+            tension: 0.25,
+            spanGaps: true,
+          };
+        }),
       },
-      plugins: [lollipopLines],
       options: {
         responsive: true,
         maintainAspectRatio: false,
         animation: false,
         plugins: {
           legend: {
-            display: false,
+            display: true,
+            position: "bottom",
+            labels: {
+              boxHeight: 8,
+              boxWidth: 12,
+              color: "#25304a",
+              font: {
+                size: 11,
+                weight: 700,
+              },
+            },
           },
           tooltip: {
             callbacks: {
               label(context) {
-                return `${Number(context.raw).toLocaleString()} 기관`;
+                return `${context.dataset.label}: ${Number(
+                  context.raw,
+                ).toLocaleString()} 기관`;
               },
             },
           },
@@ -4461,27 +4648,27 @@ function UrineTrendLineChart({ selection, trendRows }) {
     });
 
     return () => chart.destroy();
-  }, [selectedRows, selectedSpecimen.key, selectedTestKey]);
+  }, [selection.testIndex, selectedTest, selectedTestKey, trendRows]);
 
   return (
     <article className="panel trend-panel">
       <div className="panel-head">
         <div>
-          <h3>선택한 검사(검체) Unacceptable 기관 수 추이</h3>
-          <p>회차별 기관 수 롤리팝 차트</p>
+          <h3>선택한 검사 Unacceptable 기관 수 추이</h3>
+          <p>검체별 회차 추이 차트</p>
         </div>
         <span>단위: 기관</span>
       </div>
       <div className="trend-selection">
         <span>선택 검사</span>
         <strong>{selectedTest.name}</strong>
-        <span>선택 검체</span>
-        <strong>{selectedSpecimen.key}</strong>
+        <span>검체 수</span>
+        <strong>{selectedSpecimenCount}개</strong>
       </div>
       <div className="trend-canvas">
         <canvas
           ref={canvasRef}
-          aria-label="소변검사 선택 검사 검체의 회차별 Unacceptable 기관 수 추이"
+          aria-label="소변검사 선택 검사의 검체별 회차별 Unacceptable 기관 수 추이"
         />
       </div>
     </article>
@@ -5251,7 +5438,7 @@ function NewPage({
             <UrineOverview
               onOpenImageSpecimen={() => setIsImageSpecimenOpen(true)}
             />
-            <section className="content-grid">
+            <section className="content-grid urine-overview-grid">
               <UrineUnacceptableRateChart onSelect={setUrineSelection} />
               <UrineSelectedTestDetail
                 selection={urineSelection}

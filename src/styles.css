@@ -540,6 +540,13 @@ button {
   align-items: start;
 }
 
+.urine-overview-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(420px, 0.95fr);
+  grid-template-areas:
+    "chart chart"
+    "detail trend";
+}
+
 .panel {
   min-width: 0;
   padding: 16px 20px;
@@ -1910,6 +1917,34 @@ button {
   font-weight: 800;
 }
 
+.urine-specimen-detail-list {
+  display: grid;
+  gap: 12px;
+}
+
+.urine-specimen-detail-card {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #d9e1ed;
+  border-radius: 7px;
+  background: #fff;
+}
+
+.urine-specimen-detail-card h4 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #111827;
+  font-size: 14px;
+}
+
+.urine-specimen-detail-card h4 span {
+  color: var(--magenta);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
 .donut-layout {
   display: grid;
   grid-template-columns: 250px 1fr;
@@ -1918,12 +1953,27 @@ button {
   margin: 10px 0 11px;
 }
 
+.urine-specimen-donut-layout {
+  grid-template-columns: 190px minmax(0, 1fr);
+  gap: 14px;
+  margin: 10px 0 0;
+}
+
 .donut-box {
   position: relative;
   width: 250px;
   height: 250px;
   overflow: visible;
   cursor: pointer;
+}
+
+.urine-specimen-donut-box {
+  width: 190px;
+  height: 190px;
+}
+
+.donut-box.is-static {
+  cursor: default;
 }
 
 .donut-box canvas {
@@ -1958,6 +2008,11 @@ button {
 
 .donut-center {
   pointer-events: none;
+}
+
+.urine-specimen-donut-box .donut-center {
+  inset: 59px;
+  font-size: 13px;
 }
 
 .donut-box:hover .donut-center {
