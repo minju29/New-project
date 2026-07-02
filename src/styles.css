@@ -1842,6 +1842,34 @@ button {
   height: 100% !important;
 }
 
+.axis-label-click-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.axis-label-hitbox {
+  position: absolute;
+  z-index: 2;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  cursor: pointer;
+  pointer-events: auto;
+  transform: translateX(-50%);
+}
+
+.axis-label-hitbox:hover,
+.axis-label-hitbox.active {
+  background: rgba(160, 0, 86, 0.06);
+}
+
+.axis-label-hitbox:focus-visible {
+  outline: 2px solid var(--magenta);
+  outline-offset: -2px;
+}
+
 .trend-chart {
   min-height: 292px;
 }

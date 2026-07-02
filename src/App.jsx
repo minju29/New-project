@@ -3855,7 +3855,7 @@ function getUrineXAxisLabelIndex(chart, event) {
   const xScale = chart.scales.x;
 
   if (x === undefined || y === undefined || !xScale) return null;
-  if (y < chart.chartArea.bottom - 2 || y > chart.height) return null;
+  if (y < chart.chartArea.bottom - 18 || y > chart.height) return null;
 
   const lastIndex = xScale.ticks.length - 1;
 
@@ -3876,11 +3876,43 @@ function getUrineXAxisLabelIndex(chart, event) {
   return null;
 }
 
-function UrineUnacceptableRateChart({ onSelect }) {
+function createUrineAxisLabelHitboxes(chart) {
+  const xScale = chart.scales.x;
+
+  if (!xScale) return [];
+
+  const top = Math.max(chart.chartArea.bottom - 10, 0);
+  const height = Math.max(chart.height - top, 54);
+  const lastIndex = xScale.ticks.length - 1;
+
+  return urineUnacceptableRateData.tests.map((test, index) => {
+    const centerX = xScale.getPixelForTick(index);
+    const leftBoundary =
+      index === 0
+        ? xScale.left
+        : (xScale.getPixelForTick(index - 1) + centerX) / 2;
+    const rightBoundary =
+      index === lastIndex
+        ? xScale.right
+        : (centerX + xScale.getPixelForTick(index + 1)) / 2;
+    const width = Math.max(56, rightBoundary - leftBoundary);
+
+    return {
+      name: test.name,
+      left: centerX,
+      top,
+      width,
+      height,
+    };
+  });
+}
+
+function UrineUnacceptableRateChart({ selectedTestIndex, onSelect }) {
   const canvasRef = useRef(null);
   const chartRef = useRef(null);
   const scrollRef = useRef(null);
   const [zoomLevel, setZoomLevel] = useState(1);
+  const [axisLabelHitboxes, setAxisLabelHitboxes] = useState([]);
   const baseChartWidth = Math.max(860, urineUnacceptableRateData.tests.length * 78);
   const chartWidth = Math.round(baseChartWidth * zoomLevel);
 
@@ -3888,6 +3920,13 @@ function UrineUnacceptableRateChart({ onSelect }) {
 
   const changeZoom = (nextZoom) => {
     setZoomLevel(clampZoom(nextZoom));
+  };
+
+  const selectTest = (testIndex) => {
+    onSelect({
+      testIndex,
+      specimenIndex: 0,
+    });
   };
 
   useEffect(() => {
@@ -3915,10 +3954,7 @@ function UrineUnacceptableRateChart({ onSelect }) {
           const testIndex = getUrineXAxisLabelIndex(chartInstance, event);
           if (testIndex === null) return;
 
-          onSelect({
-            testIndex,
-            specimenIndex: 0,
-          });
+          selectTest(testIndex);
         },
         onHover(event, _elements, chartInstance) {
           const target = event.native?.target;
@@ -3928,6 +3964,9 @@ function UrineUnacceptableRateChart({ onSelect }) {
             getUrineXAxisLabelIndex(chartInstance, event) === null
               ? "default"
               : "pointer";
+        },
+        onResize(chartInstance) {
+          setAxisLabelHitboxes(createUrineAxisLabelHitboxes(chartInstance));
         },
         interaction: {
           intersect: true,
@@ -3984,15 +4023,20 @@ function UrineUnacceptableRateChart({ onSelect }) {
     });
 
     chartRef.current = chart;
+    setAxisLabelHitboxes(createUrineAxisLabelHitboxes(chart));
 
     return () => {
       chart.destroy();
       chartRef.current = null;
+      setAxisLabelHitboxes([]);
     };
   }, [onSelect]);
 
   useEffect(() => {
-    chartRef.current?.resize();
+    if (!chartRef.current) return;
+
+    chartRef.current.resize();
+    setAxisLabelHitboxes(createUrineAxisLabelHitboxes(chartRef.current));
   }, [chartWidth]);
 
   useEffect(() => {
@@ -4081,6 +4125,28 @@ function UrineUnacceptableRateChart({ onSelect }) {
               ref={canvasRef}
               aria-label="소변검사 검사항목별 Unacceptable Rate 막대그래프"
             />
+            <div className="axis-label-click-layer" aria-label="검사항목 선택">
+              {axisLabelHitboxes.map((hitbox, index) => (
+                <button
+                  type="button"
+                  className={
+                    selectedTestIndex === index
+                      ? "axis-label-hitbox active"
+                      : "axis-label-hitbox"
+                  }
+                  style={{
+                    left: `${hitbox.left}px`,
+                    top: `${hitbox.top}px`,
+                    width: `${hitbox.width}px`,
+                    height: `${hitbox.height}px`,
+                  }}
+                  title={hitbox.name}
+                  aria-label={`${hitbox.name} 검사 선택`}
+                  key={hitbox.name}
+                  onClick={() => selectTest(index)}
+                />
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -5439,7 +5505,10 @@ function NewPage({
               onOpenImageSpecimen={() => setIsImageSpecimenOpen(true)}
             />
             <section className="content-grid urine-overview-grid">
-              <UrineUnacceptableRateChart onSelect={setUrineSelection} />
+              <UrineUnacceptableRateChart
+                selectedTestIndex={urineSelection.testIndex}
+                onSelect={setUrineSelection}
+              />
               <UrineSelectedTestDetail
                 selection={urineSelection}
                 doughnutRows={urineDoughnutRows}
