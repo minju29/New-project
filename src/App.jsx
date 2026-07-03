@@ -658,8 +658,24 @@ const numCmp = (a, b) => {
   return na - nb;
 };
 
-// AckDataGrid용 통계 컬럼 정의. 숫자 컬럼은 formatStatisticValue로 표시(소수점/콤마/`-`),
-// numCmp로 정렬, 고유값이 많아 filter는 text(부분일치) 사용.
+// 통계 숫자 컬럼 키 (범위 필터·정규화 대상)
+const STAT_NUMERIC_KEYS = statisticsColumns
+  .filter((column) => column.type === "number")
+  .map((column) => column.key);
+
+// AckDataGrid의 number 필터는 field 값을 숫자로 비교하므로, 요검사 CSV의 문자열("1,816" 등)을
+// 미리 숫자로 정규화해 그리드에 넘긴다. 표시는 cellRenderer의 formatStatisticValue가 담당.
+const normalizeStatisticsRows = (rows) =>
+  rows.map((row) => {
+    const normalized = { ...row };
+    for (const key of STAT_NUMERIC_KEYS) {
+      normalized[key] = parseStatisticNumber(row[key]);
+    }
+    return normalized;
+  });
+
+// AckDataGrid용 통계 컬럼 정의. 숫자 컬럼은 범위(number) 필터 + formatStatisticValue 표시,
+// 텍스트 컬럼은 체크리스트 필터.
 const STAT_COL_WIDTH = { testItem: 240, specimenName: 116 };
 const statisticsGridColumns = statisticsColumns.map((column) => {
   const isNumber = column.type === "number";
@@ -669,7 +685,7 @@ const statisticsGridColumns = statisticsColumns.map((column) => {
     align: isNumber ? "right" : "left",
     headerAlign: isNumber ? "right" : "left",
     sortable: true,
-    filter: "checklist",
+    filter: isNumber ? "number" : "checklist",
     tooltip: "overflow",
     cellRenderer: ({ row }) => formatStatisticValue(row, column),
     ...(STAT_COL_WIDTH[column.key]
@@ -2263,10 +2279,11 @@ function StatisticsDetail({ rows: providedRows } = {}) {
 
         <AckDataGrid
           className="statistics-grid"
-          data={scopedRows}
+          data={normalizeStatisticsRows(scopedRows)}
           columns={statisticsGridColumns}
           getRowId={(row, index) => row.id ?? `stat-${index}`}
           enableSorting
+          enableMultiSort
           enableColumnFilters
           paginationMode="pagination"
           pageSize={50}
@@ -2274,6 +2291,7 @@ function StatisticsDetail({ rows: providedRows } = {}) {
           domLayout="autoHeight"
           stickyHeader
           enableExcelExport
+          enableVisibleExcelExport
           excelFileName="검체별_기본통계.xlsx"
           aria-label="검체별 기본통계"
         />
