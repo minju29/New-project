@@ -51,34 +51,12 @@ const urineSummary = [
   { label: "검사항목 수", value: "11", unit: "종목" },
 ];
 
-const urineImageSpecimenPreview = `data:image/svg+xml;utf8,${encodeURIComponent(`
-  <svg xmlns="http://www.w3.org/2000/svg" width="720" height="460" viewBox="0 0 720 460">
-    <rect width="720" height="460" fill="#f6f8fb"/>
-    <rect x="52" y="42" width="616" height="376" rx="22" fill="#ffffff" stroke="#d6dee9" stroke-width="3"/>
-    <rect x="93" y="82" width="260" height="296" rx="15" fill="#f2f5f9" stroke="#d1dbe8" stroke-width="2"/>
-    <rect x="123" y="116" width="200" height="228" rx="9" fill="#fff7d6" stroke="#ead998" stroke-width="2"/>
-    <g opacity="0.9">
-      <rect x="145" y="140" width="155" height="22" rx="4" fill="#f6da64"/>
-      <rect x="145" y="174" width="155" height="22" rx="4" fill="#f1bd50"/>
-      <rect x="145" y="208" width="155" height="22" rx="4" fill="#e9925b"/>
-      <rect x="145" y="242" width="155" height="22" rx="4" fill="#d7656d"/>
-      <rect x="145" y="276" width="155" height="22" rx="4" fill="#9a5fa6"/>
-      <rect x="145" y="310" width="155" height="22" rx="4" fill="#5676b9"/>
-    </g>
-    <rect x="394" y="94" width="218" height="54" rx="10" fill="#eef2f7"/>
-    <rect x="394" y="176" width="218" height="54" rx="10" fill="#fff2f6"/>
-    <rect x="394" y="258" width="218" height="54" rx="10" fill="#eef8f0"/>
-    <circle cx="419" cy="121" r="9" fill="#0869f4"/>
-    <circle cx="419" cy="203" r="9" fill="#b32572"/>
-    <circle cx="419" cy="285" r="9" fill="#11a940"/>
-    <rect x="442" y="112" width="128" height="10" rx="5" fill="#718096"/>
-    <rect x="442" y="130" width="92" height="8" rx="4" fill="#a6b1c2"/>
-    <rect x="442" y="194" width="132" height="10" rx="5" fill="#718096"/>
-    <rect x="442" y="212" width="104" height="8" rx="4" fill="#a6b1c2"/>
-    <rect x="442" y="276" width="118" height="10" rx="5" fill="#718096"/>
-    <rect x="442" y="294" width="96" height="8" rx="4" fill="#a6b1c2"/>
-  </svg>
-`)}`;
+const urineImageSpecimens = [
+  { name: "CUI-25-01", src: `${import.meta.env.BASE_URL}images/CUI-25-01.png` },
+  { name: "CUI-25-02", src: `${import.meta.env.BASE_URL}images/CUI-25-02.png` },
+  { name: "CUI-25-03", src: `${import.meta.env.BASE_URL}images/CUI-25-03.png` },
+  { name: "CUI-25-04", src: `${import.meta.env.BASE_URL}images/CUI-25-04.png` },
+];
 
 const urineUnacceptableRateData = {
   specimens: [
@@ -2733,13 +2711,20 @@ function ImageSpecimenModal({ onClose }) {
         if (!next) onClose();
       }}
       title="이미지 검체"
-      maxWidth="sm:max-w-[820px]"
+      maxWidth="sm:max-w-[980px]"
     >
-      <img
-        className="image-specimen-preview"
-        src={urineImageSpecimenPreview}
-        alt="소변검사 이미지 검체 예시"
-      />
+      <div className="image-specimen-grid">
+        {urineImageSpecimens.map((specimen) => (
+          <figure className="image-specimen-item" key={specimen.name}>
+            <figcaption>{specimen.name}</figcaption>
+            <img
+              className="image-specimen-preview"
+              src={specimen.src}
+              alt={`${specimen.name} 이미지 검체`}
+            />
+          </figure>
+        ))}
+      </div>
     </AckResponsiveDialog>
   );
 }

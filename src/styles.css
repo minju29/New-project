@@ -284,10 +284,30 @@ button {
 
 /* .image-specimen-modal* 스타일은 AckResponsiveDialog로 대체됨 (Stage 4) */
 
+.image-specimen-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.image-specimen-item {
+  min-width: 0;
+  margin: 0;
+}
+
+.image-specimen-item figcaption {
+  margin-bottom: 8px;
+  color: #111827;
+  font-size: 14px;
+  font-weight: 800;
+}
+
 .image-specimen-preview {
   display: block;
   width: 100%;
+  aspect-ratio: 1 / 1;
   height: auto;
+  object-fit: contain;
   border: 1px solid var(--line);
   border-radius: 6px;
   background: #f6f8fb;
@@ -1659,6 +1679,10 @@ button {
     align-items: flex-start;
     flex-direction: column;
     gap: 12px;
+  }
+
+  .image-specimen-grid {
+    grid-template-columns: 1fr;
   }
 
   .chart-legend {
