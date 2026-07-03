@@ -1533,6 +1533,7 @@ function SelectedTestDetail({ selection }) {
             paginationMode="pagination"
             pageSize={institutionPageSize}
             density="compact"
+            domLayout="autoHeight"
             stickyHeader
             enableExcelExport
             excelFileName={`${selectedTest.code}_${selectedSpecimen.key}_기관목록.xlsx`}
@@ -1574,6 +1575,7 @@ function NonconformanceInstitutionGrid({
         paginationMode="pagination"
         pageSize={institutionPageSize}
         density="compact"
+        domLayout="autoHeight"
         stickyHeader
         aria-label="부적합 분석 Unacceptable 기관 목록"
       />
@@ -2201,6 +2203,7 @@ function UrineQualitativeStatistics({ rows }) {
           paginationMode="pagination"
           pageSize={50}
           density="compact"
+          domLayout="autoHeight"
           stickyHeader
           enableExcelExport
           excelFileName="검사항목별_정성판정.xlsx"
@@ -2268,6 +2271,7 @@ function StatisticsDetail({ rows: providedRows } = {}) {
           paginationMode="pagination"
           pageSize={50}
           density="compact"
+          domLayout="autoHeight"
           stickyHeader
           enableExcelExport
           excelFileName="검체별_기본통계.xlsx"
@@ -2585,6 +2589,7 @@ function TrendAnalysis() {
           }
           onRowClick={(row) => selectTrendRow(row.code)}
           density="compact"
+          domLayout="autoHeight"
           stickyHeader
           aria-label="검체별 전체 검사항목 추이"
         />
@@ -3348,6 +3353,7 @@ function UrineSelectedTestDetail({ selection, doughnutRows, institutionRows }) {
             paginationMode="pagination"
             pageSize={institutionPageSize}
             density="compact"
+            domLayout="autoHeight"
             stickyHeader
             enableExcelExport
             excelFileName={`${selectedTest.name}_${activeDetail.specimen.key}_Unacceptable기관목록.xlsx`}
@@ -3698,6 +3704,7 @@ function UrineTrendAnalysis({ rows }) {
           }
           onRowClick={(row) => selectTrendRow(row.code)}
           density="compact"
+          domLayout="autoHeight"
           stickyHeader
           aria-label="검사항목/검체별 Unacceptable Rate 추이"
         />
