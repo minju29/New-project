@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArcElement,
   BarController,
@@ -51,34 +51,12 @@ const urineSummary = [
   { label: "검사항목 수", value: "11", unit: "종목" },
 ];
 
-const urineImageSpecimenPreview = `data:image/svg+xml;utf8,${encodeURIComponent(`
-  <svg xmlns="http://www.w3.org/2000/svg" width="720" height="460" viewBox="0 0 720 460">
-    <rect width="720" height="460" fill="#f6f8fb"/>
-    <rect x="52" y="42" width="616" height="376" rx="22" fill="#ffffff" stroke="#d6dee9" stroke-width="3"/>
-    <rect x="93" y="82" width="260" height="296" rx="15" fill="#f2f5f9" stroke="#d1dbe8" stroke-width="2"/>
-    <rect x="123" y="116" width="200" height="228" rx="9" fill="#fff7d6" stroke="#ead998" stroke-width="2"/>
-    <g opacity="0.9">
-      <rect x="145" y="140" width="155" height="22" rx="4" fill="#f6da64"/>
-      <rect x="145" y="174" width="155" height="22" rx="4" fill="#f1bd50"/>
-      <rect x="145" y="208" width="155" height="22" rx="4" fill="#e9925b"/>
-      <rect x="145" y="242" width="155" height="22" rx="4" fill="#d7656d"/>
-      <rect x="145" y="276" width="155" height="22" rx="4" fill="#9a5fa6"/>
-      <rect x="145" y="310" width="155" height="22" rx="4" fill="#5676b9"/>
-    </g>
-    <rect x="394" y="94" width="218" height="54" rx="10" fill="#eef2f7"/>
-    <rect x="394" y="176" width="218" height="54" rx="10" fill="#fff2f6"/>
-    <rect x="394" y="258" width="218" height="54" rx="10" fill="#eef8f0"/>
-    <circle cx="419" cy="121" r="9" fill="#0869f4"/>
-    <circle cx="419" cy="203" r="9" fill="#b32572"/>
-    <circle cx="419" cy="285" r="9" fill="#11a940"/>
-    <rect x="442" y="112" width="128" height="10" rx="5" fill="#718096"/>
-    <rect x="442" y="130" width="92" height="8" rx="4" fill="#a6b1c2"/>
-    <rect x="442" y="194" width="132" height="10" rx="5" fill="#718096"/>
-    <rect x="442" y="212" width="104" height="8" rx="4" fill="#a6b1c2"/>
-    <rect x="442" y="276" width="118" height="10" rx="5" fill="#718096"/>
-    <rect x="442" y="294" width="96" height="8" rx="4" fill="#a6b1c2"/>
-  </svg>
-`)}`;
+const urineImageSpecimens = ["CUI-25-01", "CUI-25-02", "CUI-25-03", "CUI-25-04"].map(
+  (name) => ({
+    name,
+    fileName: `${name}.png`,
+  }),
+);
 
 const urineUnacceptableRateData = {
   specimens: [
@@ -158,6 +136,10 @@ function getPageIdFromHash() {
 
 function getDataUrl(fileName) {
   return new URL(`data/${fileName}`, window.location.href).toString();
+}
+
+function getPublicAssetUrl(path) {
+  return new URL(path, window.location.href).toString();
 }
 
 function parseCsv(text) {
@@ -2028,6 +2010,21 @@ function formatQualitativeRate(value) {
   return Number.isFinite(numericValue) ? `${numericValue.toFixed(2)}%` : cell;
 }
 
+const QUALITATIVE_NUMERIC_KEYS = [
+  "결과선택기관수_전체",
+  "결과선택기관수_선택",
+  "결과선택기관수_비율",
+];
+
+const normalizeQualitativeStatisticsRows = (rows) =>
+  rows.map((row) => {
+    const normalized = { ...row };
+    for (const key of QUALITATIVE_NUMERIC_KEYS) {
+      normalized[key] = parseStatisticNumber(row[key]);
+    }
+    return normalized;
+  });
+
 function getQualitativeJudgmentClass(value) {
   return String(value).toLowerCase() === "unacceptable"
     ? "is-unacceptable"
@@ -2126,6 +2123,8 @@ const qualitativeGridColumns = [
         headerName: "전체",
         width: 56,
         align: "right",
+        headerAlign: "right",
+        filter: "number",
         sortable: true,
         comparator: numCmp,
         cellRenderer: ({ row }) =>
@@ -2136,6 +2135,8 @@ const qualitativeGridColumns = [
         headerName: "선택",
         width: 56,
         align: "right",
+        headerAlign: "right",
+        filter: "number",
         sortable: true,
         comparator: numCmp,
         cellRenderer: ({ row }) =>
@@ -2146,6 +2147,8 @@ const qualitativeGridColumns = [
         headerName: "비율",
         width: 62,
         align: "right",
+        headerAlign: "right",
+        filter: "number",
         sortable: true,
         comparator: numCmp,
         cellRenderer: ({ row }) =>
@@ -2194,6 +2197,10 @@ const qualitativeGridColumns = [
 
 function UrineQualitativeStatistics({ rows }) {
   const sourceRows = rows ?? [];
+  const gridRows = useMemo(
+    () => normalizeQualitativeStatisticsRows(sourceRows),
+    [sourceRows],
+  );
 
   return (
     <section className="statistics-view qualitative-statistics-view">
@@ -2209,7 +2216,7 @@ function UrineQualitativeStatistics({ rows }) {
         </div>
 
         <AckDataGrid
-          data={sourceRows}
+          data={gridRows}
           columns={qualitativeGridColumns}
           getRowId={(row, index) =>
             `${row["검사명"]}-${row["검체명"]}-${row["기준분류"]}-${row["보고된 결과"]}-${index}`
@@ -2749,6 +2756,13 @@ function ReportTabbar({ activeTab, onTabChange, tabs = reportTabs }) {
 }
 
 function ImageSpecimenModal({ onClose }) {
+  const [selectedSpecimenName, setSelectedSpecimenName] = useState(
+    urineImageSpecimens[0].name,
+  );
+  const selectedSpecimen =
+    urineImageSpecimens.find((specimen) => specimen.name === selectedSpecimenName) ??
+    urineImageSpecimens[0];
+
   return (
     <AckResponsiveDialog
       open
@@ -2758,10 +2772,22 @@ function ImageSpecimenModal({ onClose }) {
       title="이미지 검체"
       maxWidth="sm:max-w-[820px]"
     >
+      <div className="image-specimen-selector" aria-label="이미지 검체 목록">
+        {urineImageSpecimens.map((specimen) => (
+          <button
+            type="button"
+            className={specimen.name === selectedSpecimen.name ? "active" : undefined}
+            onClick={() => setSelectedSpecimenName(specimen.name)}
+            key={specimen.name}
+          >
+            {specimen.name}
+          </button>
+        ))}
+      </div>
       <img
         className="image-specimen-preview"
-        src={urineImageSpecimenPreview}
-        alt="소변검사 이미지 검체 예시"
+        src={getPublicAssetUrl(`images/urine-specimens/${selectedSpecimen.fileName}`)}
+        alt={`${selectedSpecimen.name} 이미지 검체`}
       />
     </AckResponsiveDialog>
   );
@@ -4750,3 +4776,5 @@ function App() {
 }
 
 export default App;
+
+

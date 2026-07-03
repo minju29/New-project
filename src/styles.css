@@ -1,4 +1,4 @@
-:root {
+﻿:root {
   /* ADS 디자인 토큰으로 재스키닝 — 기존 var(--x) 사용처가 자동 캐스케이드됨 */
   --magenta: var(--primary-500); /* #a00056 → #b32572 (KEQAS 브랜드) */
   --magenta-dark: var(--primary-700); /* #85004b → #841350 */
@@ -283,6 +283,36 @@ button {
 }
 
 /* .image-specimen-modal* 스타일은 AckResponsiveDialog로 대체됨 (Stage 4) */
+
+.image-specimen-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.image-specimen-selector button {
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: #fff;
+  color: #25304a;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.image-specimen-selector button:hover {
+  border-color: #c6cedc;
+  background: #f8fafc;
+}
+
+.image-specimen-selector button.active {
+  border-color: var(--magenta);
+  background: var(--magenta);
+  color: #fff;
+}
 
 .image-specimen-preview {
   display: block;
@@ -1766,3 +1796,4 @@ button {
     margin-left: 0;
   }
 }
+
