@@ -1,5 +1,5 @@
 ﻿:root {
-  /* ADS 디자인 토큰으로 재스키닝 — 기존 var(--x) 사용처가 자동 캐스케이드됨 */
+  /* ADS 디자인 토큰으로 재스키닝 ? 기존 var(--x) 사용처가 자동 캐스케이드됨 */
   --magenta: var(--primary-500); /* #a00056 → #b32572 (KEQAS 브랜드) */
   --magenta-dark: var(--primary-700); /* #85004b → #841350 */
   --ink: var(--text-basic); /* → gray-900 */
@@ -27,7 +27,7 @@ button {
   font: inherit;
 }
 
-/* Tailwind preflight 방식 — @layer base로 브라우저 기본 button 테두리 리셋.
+/* Tailwind preflight 방식 ? @layer base로 브라우저 기본 button 테두리 리셋.
    base 레이어라 utilities(.border 등)보다 우선순위가 낮아, border 클래스가 있는
    그리드 export/페이지네이션 버튼은 테두리를 유지하고, 클래스 없는 버튼(필터 토글·AckButton)만 리셋됨 */
 @layer base {
@@ -317,7 +317,9 @@ button {
 .image-specimen-preview {
   display: block;
   width: 100%;
+  aspect-ratio: 1 / 1;
   height: auto;
+  object-fit: contain;
   border: 1px solid var(--line);
   border-radius: 6px;
   background: #f6f8fb;
@@ -732,7 +734,7 @@ button {
   height: 100% !important;
 }
 
-/* 통계상세(정량)·추이·기관 그리드 — 헤더 굵게·세로 증대, 본문 세로 축소 (세로 길이 통일) */
+/* 통계상세(정량)·추이·기관 그리드 ? 헤더 굵게·세로 증대, 본문 세로 축소 (세로 길이 통일) */
 .statistics-grid [data-slot="ack-data-grid-header-cell"],
 .trend-grid [data-slot="ack-data-grid-header-cell"],
 .institution-data-grid [data-slot="ack-data-grid-header-cell"] {
@@ -1005,7 +1007,7 @@ button {
   color: var(--magenta);
 }
 
-/* AckDataGrid 추이 히트맵 — 셀 패딩 제거 후 cellRenderer가 배경 톤으로 셀을 꽉 채움 + 선택 행 강조 */
+/* AckDataGrid 추이 히트맵 ? 셀 패딩 제거 후 cellRenderer가 배경 톤으로 셀을 꽉 채움 + 선택 행 강조 */
 .trend-grid [data-slot="ack-data-grid-cell"],
 .trend-grid [data-slot="ack-data-grid-cell-value"] {
   padding: 0;
@@ -1689,6 +1691,10 @@ button {
     align-items: flex-start;
     flex-direction: column;
     gap: 12px;
+  }
+
+  .image-specimen-grid {
+    grid-template-columns: 1fr;
   }
 
   .chart-legend {

@@ -557,7 +557,7 @@ const institutionColumnDescriptions = {
   instrument: "검사에 사용한 장비명입니다.",
 };
 
-// 행 순번(No)을 데이터에 주입 — 그리드 showRowNumbers는 헤더 컬럼을 만들지 않아 값과 겹치므로 명시 컬럼 사용
+// 행 순번(No)을 데이터에 주입 ? 그리드 showRowNumbers는 헤더 컬럼을 만들지 않아 값과 겹치므로 명시 컬럼 사용
 const withRowNo = (rows) => rows.map((row, index) => ({ ...row, __no: index + 1 }));
 
 // 명시적 No 컬럼 정의 (showRowNumbers 대체)
@@ -585,7 +585,7 @@ const toInstitutionGridColumns = (cols) => [
     })),
 ];
 
-// 요검사 개요 기관 그리드 — 필드명≠헤더, [NULL] 정리 필요한 컬럼은 cellRenderer 적용.
+// 요검사 개요 기관 그리드 ? 필드명≠헤더, [NULL] 정리 필요한 컬럼은 cellRenderer 적용.
 const urineInstitutionGridColumns = [
   rowNoColumn,
   { field: "기관코드", headerName: "기관코드", tooltip: "overflow" },
@@ -630,7 +630,7 @@ const statisticsScopeOptions = [
   { value: "detail", label: "세분류 통계" },
 ];
 
-// 통계 숫자 컬럼 정렬용 비교자 — 화학(number)/요검사 CSV(string) 혼합값을 숫자로 파싱해 정렬. null은 뒤로.
+// 통계 숫자 컬럼 정렬용 비교자 ? 화학(number)/요검사 CSV(string) 혼합값을 숫자로 파싱해 정렬. null은 뒤로.
 const numCmp = (a, b) => {
   const na = parseStatisticNumber(a);
   const nb = parseStatisticNumber(b);
@@ -2348,7 +2348,7 @@ function formatTrendCount(value) {
   return `${Number(value).toLocaleString()}기관`;
 }
 
-// 추이 히트맵 셀 — 셀을 꽉 채우는 배경으로 rate 톤(high/warning/low/empty) 표현
+// 추이 히트맵 셀 ? 셀을 꽉 채우는 배경으로 rate 톤(high/warning/low/empty) 표현
 function TrendRateGridCell({ value, isCurrent }) {
   const rate = value?.rate;
   const tone = getTrendRateTone(rate);
@@ -2770,7 +2770,7 @@ function ImageSpecimenModal({ onClose }) {
         if (!next) onClose();
       }}
       title="이미지 검체"
-      maxWidth="sm:max-w-[820px]"
+      maxWidth="sm:max-w-[980px]"
     >
       <div className="image-specimen-selector" aria-label="이미지 검체 목록">
         {urineImageSpecimens.map((specimen) => (
