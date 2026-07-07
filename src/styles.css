@@ -1,4 +1,4 @@
-﻿:root {
+:root {
   /* ADS 디자인 토큰으로 재스키닝 ? 기존 var(--x) 사용처가 자동 캐스케이드됨 */
   --magenta: var(--primary-500); /* #a00056 → #b32572 (KEQAS 브랜드) */
   --magenta-dark: var(--primary-700); /* #85004b → #841350 */
@@ -734,6 +734,38 @@ button {
   height: 100% !important;
 }
 
+.sdi-empty-state {
+  min-height: 320px;
+  display: grid;
+  place-items: center;
+  border: 1px dashed rgba(148, 163, 184, 0.45);
+  background: rgba(248, 250, 252, 0.78);
+  color: #64748b;
+  font-size: 13px;
+}
+
+.sdi-split-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 28px;
+}
+
+.sdi-split-item {
+  min-width: 0;
+}
+
+.sdi-split-item h4 {
+  margin: 0 0 10px;
+  color: #25304a;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.sdi-split-item .sdi-canvas {
+  min-width: 0;
+  height: 520px;
+}
+
 /* 통계상세(정량)·추이·기관 그리드 ? 헤더 굵게·세로 증대, 본문 세로 축소 (세로 길이 통일) */
 .statistics-grid [data-slot="ack-data-grid-header-cell"],
 .trend-grid [data-slot="ack-data-grid-header-cell"],
@@ -1007,7 +1039,7 @@ button {
   color: var(--magenta);
 }
 
-/* AckDataGrid 추이 히트맵 ? 셀 패딩 제거 후 cellRenderer가 배경 톤으로 셀을 꽉 채움 + 선택 행 강조 */
+/* AckDataGrid 추이 히트맵 ? 셀 패딩 제거 후 cellStyle이 배경 톤으로 셀을 꽉 채움 + 선택 행 강조 */
 .trend-grid [data-slot="ack-data-grid-cell"],
 .trend-grid [data-slot="ack-data-grid-cell-value"] {
   padding: 0;
@@ -1048,28 +1080,21 @@ button {
 }
 
 .trend-rate-cell.is-low {
-  background: #e7f5ec;
   color: #139449;
 }
 
 .trend-rate-cell.is-warning {
-  background: #fff3cf;
   color: #e08a00;
 }
 
 .trend-rate-cell.is-high {
-  background: #ffe7ea;
   color: #e0354f;
 }
 
 .trend-rate-cell.is-empty {
-  background: #f4f6f9;
   color: #8b97a8;
 }
 
-.trend-rate-cell.is-current {
-  background: #b8daf8;
-}
 
 .trend-rate-cell.is-current.is-low {
   color: #0f8d4d;
@@ -1433,6 +1458,23 @@ button {
   margin: 10px 0 0;
 }
 
+.chemistry-detail-donut-layout {
+  grid-template-columns: 1fr;
+  justify-items: center;
+  align-items: stretch;
+  gap: 18px;
+}
+
+.chemistry-detail-donut-layout .maker-chart-panel {
+  width: 100%;
+  max-height: 520px;
+  padding: 6px 2px 0;
+}
+
+.chemistry-detail-donut-layout .maker-chart-panel canvas {
+  min-height: 340px;
+}
+
 .donut-box {
   position: relative;
   width: 250px;
@@ -1543,6 +1585,48 @@ button {
   display: grid;
   gap: 14px;
   color: #111827;
+  font-size: 12px;
+}
+
+.maker-chart-stack {
+  display: grid;
+  width: 100%;
+  gap: 18px;
+}
+
+.maker-chart-panel {
+  min-width: 0;
+  max-height: 330px;
+  overflow-y: auto;
+  padding: 4px 4px 4px 0;
+}
+
+.unacceptable-count-chart-panel {
+  padding-top: 14px;
+  border-top: 1px solid #e6ebf2;
+}
+
+.unacceptable-count-chart-panel h5 {
+  margin: 0 0 8px;
+  color: #111827;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.maker-chart-panel canvas {
+  display: block;
+  width: 100% !important;
+  min-height: 230px;
+}
+
+.maker-chart-empty {
+  display: grid;
+  min-height: 120px;
+  place-items: center;
+  color: #25304a;
+  border: 1px dashed #cfd7e6;
+  border-radius: 6px;
+  background: #fbfcfe;
   font-size: 12px;
 }
 
@@ -1659,6 +1743,10 @@ button {
 }
 
 @media (max-width: 760px) {
+  .sdi-split-item .sdi-canvas {
+    height: 420px;
+  }
+
   .topbar {
     height: auto;
     min-height: 54px;
@@ -1772,6 +1860,11 @@ button {
 
   .maker-list {
     gap: 10px;
+  }
+
+  .maker-chart-panel,
+  .chemistry-detail-donut-layout .maker-chart-panel {
+    max-height: 420px;
   }
 
   .maker-item {

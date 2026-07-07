@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArcElement,
   BarController,
@@ -11,6 +11,7 @@ import {
   LinearScale,
   LineController,
   LineElement,
+  ScatterController,
   PointElement,
   Tooltip,
 } from "chart.js";
@@ -34,6 +35,7 @@ Chart.register(
   ArcElement,
   LineController,
   LineElement,
+  ScatterController,
   PointElement,
   Filler,
   Tooltip,
@@ -803,16 +805,342 @@ function getStatisticsRows() {
   return statisticsRows;
 }
 
-function getMakerData(selection) {
-  const selectedValue =
-    unacceptableRateData.tests[selection.testIndex].values[
-      selection.specimenIndex
-    ];
+const chemistryDataFileName = "chemi_2025_04/2025_04_120_일반화학.csv";
+const chemistryDetailColors = [
+  "#0869f4",
+  "#ff7a00",
+  "#25a636",
+  "#b32572",
+  "#7954dd",
+  "#0894b5",
+  "#db2877",
+  "#f59e0b",
+  "#51ad3f",
+  "#f97316",
+  "#4b5563",
+  "#14b8a6",
+];
+
+function getChemistryJudgment(row) {
+  return row["판정"] ?? row[Object.keys(row).at(-1)] ?? "";
+}
+
+function getSetSize(value) {
+  return value instanceof Set ? value.size : 0;
+}
+
+function sortChemistryLabels(left, right) {
+  return String(left).localeCompare(String(right), "ko", {
+    numeric: true,
+    sensitivity: "base",
+  });
+}
+
+function toChemistryInstitutionRow(row, detailName) {
+  return {
+    code: row.instcd,
+    name: row.cmpynm,
+    result: row.rslt,
+    standardSdi: row.sdi_l1,
+    detailSdi: row.sdi_l2,
+    maker: detailName,
+    instrument: row.stndchassinm || row.detlchassinm || "-",
+    testCode: row.testcd,
+    specimenKey: row.gmatrnm,
+  };
+}
+
+function createChemistryDashboardData(rows) {
+  if (!Array.isArray(rows) || rows.length === 0) {
+    return {
+      ...unacceptableRateData,
+      summary: mockSummary,
+    };
+  }
+
+  const institutionSet = new Set();
+  const specimenMap = new Map();
+  const testMap = new Map();
+
+  for (const row of rows) {
+    const institutionCode = row.instcd;
+    const specimenKey = row.gmatrnm;
+    const testCode = row.testcd;
+    const testName = row.testhngnm || testCode;
+    const detailName = row.detlchassinm || row.detlchassicd || "미분류";
+
+    if (!institutionCode || !specimenKey || !testCode) continue;
+
+    institutionSet.add(institutionCode);
+
+    if (!specimenMap.has(specimenKey)) {
+      specimenMap.set(specimenKey, {
+        key: specimenKey,
+        color: chemistryDetailColors[specimenMap.size % chemistryDetailColors.length],
+      });
+    }
+
+    if (!testMap.has(testCode)) {
+      testMap.set(testCode, {
+        code: testCode,
+        name: testName,
+        specimenBuckets: new Map(),
+      });
+    }
+
+    const test = testMap.get(testCode);
+    if (!test.specimenBuckets.has(specimenKey)) {
+      test.specimenBuckets.set(specimenKey, {
+        totalInstitutions: new Set(),
+        unacceptableInstitutions: new Set(),
+        details: new Map(),
+      });
+    }
+
+    const specimenBucket = test.specimenBuckets.get(specimenKey);
+    specimenBucket.totalInstitutions.add(institutionCode);
+
+    if (!specimenBucket.details.has(detailName)) {
+      specimenBucket.details.set(detailName, {
+        name: detailName,
+        totalInstitutions: new Set(),
+        unacceptableInstitutions: new Set(),
+        unacceptableRowsByInstitution: new Map(),
+      });
+    }
+
+    const detail = specimenBucket.details.get(detailName);
+    detail.totalInstitutions.add(institutionCode);
+
+    if (String(getChemistryJudgment(row)).trim().toUpperCase() === "N") {
+      specimenBucket.unacceptableInstitutions.add(institutionCode);
+      detail.unacceptableInstitutions.add(institutionCode);
+      if (!detail.unacceptableRowsByInstitution.has(institutionCode)) {
+        detail.unacceptableRowsByInstitution.set(
+          institutionCode,
+          toChemistryInstitutionRow(row, detailName),
+        );
+      }
+    }
+  }
+
+  const specimens = Array.from(specimenMap.values()).sort((a, b) =>
+    sortChemistryLabels(a.key, b.key),
+  );
+
+  const tests = Array.from(testMap.values()).map((test) => {
+    const values = [];
+    const unacceptableCounts = [];
+    const participatingCounts = [];
+    const specimenDetails = [];
+
+    for (const specimen of specimens) {
+      const bucket = test.specimenBuckets.get(specimen.key);
+      const participatingCount = getSetSize(bucket?.totalInstitutions);
+      const unacceptableCount = getSetSize(bucket?.unacceptableInstitutions);
+
+      values.push(
+        participatingCount > 0 ? (unacceptableCount / participatingCount) * 100 : 0,
+      );
+      unacceptableCounts.push(unacceptableCount);
+      participatingCounts.push(participatingCount);
+
+      const details = Array.from(bucket?.details.values() ?? [])
+        .map((detail, index) => {
+          const detailTotal = getSetSize(detail.totalInstitutions);
+          const detailUnacceptable = getSetSize(detail.unacceptableInstitutions);
+
+          return {
+            name: detail.name,
+            count: detailTotal,
+            total: detailTotal,
+            unacceptableCount: detailUnacceptable,
+            rate: detailTotal > 0 ? (detailUnacceptable / detailTotal) * 100 : 0,
+            color: chemistryDetailColors[index % chemistryDetailColors.length],
+            rows: Array.from(detail.unacceptableRowsByInstitution.values()),
+          };
+        })
+        .filter((detail) => detail.total > 0)
+        .sort((a, b) => b.count - a.count || sortChemistryLabels(a.name, b.name));
+
+      specimenDetails.push(details);
+    }
+
+    return {
+      code: test.code,
+      name: test.name,
+      values,
+      unacceptableCounts,
+      participatingCounts,
+      specimenDetails,
+    };
+  });
+
+  return {
+    specimens,
+    tests,
+    summary: [
+      {
+        label: "참여기관 수",
+        value: institutionSet.size.toLocaleString(),
+        unit: "기관",
+      },
+      {
+        label: "검사항목 수",
+        value: tests.length.toLocaleString(),
+        unit: "종목",
+      },
+      {
+        label: "검체 수",
+        value: specimens.length.toLocaleString(),
+        unit: "개",
+      },
+    ],
+  };
+}
+
+function parseChemistryNumericValue(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const numericValue = Number(String(value).replace(/,/g, ""));
+
+  return Number.isFinite(numericValue) ? numericValue : null;
+}
+
+function createChemistryNonconformanceData(rows) {
+  if (!Array.isArray(rows) || rows.length === 0) {
+    return {
+      specimens: [],
+      tests: [],
+    };
+  }
+
+  const specimenMap = new Map();
+  const testMap = new Map();
+
+  for (const row of rows) {
+    const institutionCode = row.instcd;
+    const specimenKey = row.gmatrnm;
+    const testCode = row.testcd;
+    const testName = row.testhngnm || testCode;
+
+    if (!institutionCode || !specimenKey || !testCode) continue;
+
+    if (!specimenMap.has(specimenKey)) {
+      specimenMap.set(specimenKey, {
+        key: specimenKey,
+        color: chemistryDetailColors[specimenMap.size % chemistryDetailColors.length],
+      });
+    }
+
+    if (!testMap.has(testCode)) {
+      testMap.set(testCode, {
+        code: testCode,
+        name: testName,
+        specimenBuckets: new Map(),
+        totalInstitutions: new Set(),
+        unacceptableInstitutions: new Set(),
+        sdiPoints: [],
+      });
+    }
+
+    const test = testMap.get(testCode);
+    test.totalInstitutions.add(institutionCode);
+
+    if (!test.specimenBuckets.has(specimenKey)) {
+      test.specimenBuckets.set(specimenKey, {
+        totalInstitutions: new Set(),
+        unacceptableInstitutions: new Set(),
+        unacceptableRowsByInstitution: new Map(),
+      });
+    }
+
+    const bucket = test.specimenBuckets.get(specimenKey);
+    bucket.totalInstitutions.add(institutionCode);
+
+    const judgment = String(getChemistryJudgment(row)).trim().toUpperCase();
+    const isUnacceptable = judgment === "N";
+
+    if (isUnacceptable) {
+      test.unacceptableInstitutions.add(institutionCode);
+      bucket.unacceptableInstitutions.add(institutionCode);
+      if (!bucket.unacceptableRowsByInstitution.has(institutionCode)) {
+        bucket.unacceptableRowsByInstitution.set(
+          institutionCode,
+          toChemistryInstitutionRow(row, row.detlchassinm || row.detlchassicd || "미분류"),
+        );
+      }
+    }
+
+    const standardSdi = parseChemistryNumericValue(row.sdi_l1);
+    const detailSdi = parseChemistryNumericValue(row.sdi_l2);
+
+    if (standardSdi !== null && detailSdi !== null) {
+      test.sdiPoints.push({
+        x: standardSdi,
+        y: detailSdi,
+        specimenKey,
+        institutionCode,
+        institutionName: row.cmpynm || institutionCode,
+        result: row.rslt,
+        judgment,
+        isUnacceptable,
+      });
+    }
+  }
+
+  const specimens = Array.from(specimenMap.values()).sort((a, b) =>
+    sortChemistryLabels(a.key, b.key),
+  );
+
+  const tests = Array.from(testMap.values())
+    .map((test) => ({
+      code: test.code,
+      name: test.name,
+      participatingCount: getSetSize(test.totalInstitutions),
+      totalUnacceptableCount: getSetSize(test.unacceptableInstitutions),
+      specimenSummaries: specimens.map((specimen) => {
+        const bucket = test.specimenBuckets.get(specimen.key);
+        const participatingCount = getSetSize(bucket?.totalInstitutions);
+        const unacceptableCount = getSetSize(bucket?.unacceptableInstitutions);
+
+        return {
+          key: specimen.key,
+          color: specimen.color,
+          participatingCount,
+          unacceptableCount,
+          rate:
+            participatingCount > 0
+              ? (unacceptableCount / participatingCount) * 100
+              : 0,
+          rows: Array.from(bucket?.unacceptableRowsByInstitution.values() ?? []),
+        };
+      }),
+      sdiPoints: test.sdiPoints,
+    }))
+    .sort((a, b) => sortChemistryLabels(a.name, b.name));
+
+  return {
+    specimens,
+    tests,
+  };
+}
+
+function getMakerData(selection, data = unacceptableRateData) {
+  const selectedTest = data.tests[selection.testIndex];
+  const detailRows = selectedTest?.specimenDetails?.[selection.specimenIndex];
+
+  if (Array.isArray(detailRows) && detailRows.length > 0) {
+    return detailRows;
+  }
+
+  const selectedValue = selectedTest?.values?.[selection.specimenIndex] ?? 0;
   const bumpIndex =
     (selection.testIndex + selection.specimenIndex) % makerBaseData.length;
 
   return makerBaseData.map((maker, index) => ({
     ...maker,
+    rate: undefined,
+    rows: undefined,
     count:
       index === bumpIndex
         ? maker.count + Math.round(selectedValue)
@@ -831,6 +1159,10 @@ function getGeneratedInstrument(makerName) {
 }
 
 function getInstitutionRowsForMakers(makers) {
+  if (makers.some((maker) => Array.isArray(maker.rows))) {
+    return makers.flatMap((maker) => maker.rows ?? []);
+  }
+
   const generatedNames = [
     "가온의원",
     "누리검진센터",
@@ -876,16 +1208,14 @@ function getInstitutionRowsForMakers(makers) {
   });
 }
 
-function getTrendData(selection) {
+function getTrendData(selection, data = unacceptableRateData) {
   const trendPeriods = trendTableData.allPeriods.map((period) => ({
     label: period.key,
     year: period.year,
     round: period.round,
   }));
   const selectedRate =
-    unacceptableRateData.tests[selection.testIndex].values[
-      selection.specimenIndex
-    ];
+    data.tests[selection.testIndex]?.values?.[selection.specimenIndex] ?? 0;
   const base =
     48 +
     Math.round(selectedRate * 6) +
@@ -1012,11 +1342,19 @@ function renderDoughnutTooltip(context, makers) {
   const dataIndex = tooltip.dataPoints[0].dataIndex;
   const maker = makers[dataIndex];
   const total = makers.reduce((sum, item) => sum + item.count, 0);
+  const detailShare = total > 0 ? (maker.count / total) * 100 : 0;
+  const unacceptableCount = maker.unacceptableCount ?? maker.count;
+  const unacceptableRate = Number.isFinite(maker.rate)
+    ? maker.rate
+    : maker.total > 0
+      ? (unacceptableCount / maker.total) * 100
+      : 0;
   const alignLeft = tooltip.caretX > chart.width / 2;
 
   tooltipEl.innerHTML = `
     <strong>${escapeHtml(maker.name)}</strong>
-    <span>${maker.count} 기관 (${formatPercent((maker.count / total) * 100)})</span>
+    <span>전체 ${maker.count.toLocaleString()} 기관 (${formatPercent(detailShare)})</span>
+    <span>Unacceptable ${unacceptableCount.toLocaleString()} 기관 (${formatPercent(unacceptableRate)})</span>
   `;
   tooltipEl.style.opacity = "1";
   tooltipEl.style.left = `${chart.canvas.offsetLeft + tooltip.caretX}px`;
@@ -1058,13 +1396,17 @@ function renderUrineDoughnutTooltip(context, makers) {
     : "translate(12px, -50%)";
 }
 
-function UnacceptableRateChart({ onSelect }) {
+function UnacceptableRateChart({ data = unacceptableRateData, onSelect }) {
   const canvasRef = useRef(null);
   const chartRef = useRef(null);
   const scrollRef = useRef(null);
   const [zoomLevel, setZoomLevel] = useState(1);
-  const baseChartWidth = Math.max(860, unacceptableRateData.tests.length * 36);
+  const baseChartWidth = Math.max(860, data.tests.length * 36);
   const chartWidth = Math.round(baseChartWidth * zoomLevel);
+  const maxRate = Math.max(
+    8,
+    ...data.tests.flatMap((test) => test.values.map((value) => Number(value) || 0)),
+  );
 
   const clampZoom = (nextZoom) => Math.min(2, Math.max(0.75, nextZoom));
 
@@ -1076,20 +1418,16 @@ function UnacceptableRateChart({ onSelect }) {
     const chart = new Chart(canvasRef.current, {
       type: "bar",
       data: {
-        labels: unacceptableRateData.tests.map((test) => test.code),
-        datasets: unacceptableRateData.specimens.map(
-          (specimen, specimenIndex) => ({
-            label: specimen.key,
-            data: unacceptableRateData.tests.map(
-              (test) => test.values[specimenIndex],
-            ),
-            backgroundColor: specimen.color,
-            borderColor: specimen.color,
-            borderRadius: 2,
-            barPercentage: 0.78,
-            categoryPercentage: 0.7,
-          }),
-        ),
+        labels: data.tests.map((test) => test.name),
+        datasets: data.specimens.map((specimen, specimenIndex) => ({
+          label: specimen.key,
+          data: data.tests.map((test) => test.values[specimenIndex]),
+          backgroundColor: specimen.color,
+          borderColor: specimen.color,
+          borderRadius: 2,
+          barPercentage: 0.78,
+          categoryPercentage: 0.7,
+        })),
       },
       options: {
         responsive: true,
@@ -1122,10 +1460,16 @@ function UnacceptableRateChart({ onSelect }) {
             titleColor: "#25304a",
             callbacks: {
               title(items) {
-                return unacceptableRateData.tests[items[0].dataIndex].name;
+                return data.tests[items[0].dataIndex].name;
               },
               label(item) {
-                return `${item.dataset.label}: ${formatPercent(item.parsed.y)}`;
+                const test = data.tests[item.dataIndex];
+                const count = test.unacceptableCounts?.[item.datasetIndex];
+                const total = test.participatingCounts?.[item.datasetIndex];
+                const suffix = Number.isFinite(count) && Number.isFinite(total)
+                  ? ` (${count.toLocaleString()} / ${total.toLocaleString()}기관)`
+                  : "";
+                return `${item.dataset.label}: ${formatPercent(item.parsed.y)}${suffix}`;
               },
             },
           },
@@ -1146,7 +1490,7 @@ function UnacceptableRateChart({ onSelect }) {
           },
           y: {
             min: 0,
-            max: 8,
+            max: Math.ceil(maxRate / 2) * 2,
             border: {
               color: "#cfd7e6",
             },
@@ -1173,7 +1517,7 @@ function UnacceptableRateChart({ onSelect }) {
       chart.destroy();
       chartRef.current = null;
     };
-  }, [onSelect]);
+  }, [data, onSelect, maxRate]);
 
   useEffect(() => {
     chartRef.current?.resize();
@@ -1204,7 +1548,7 @@ function UnacceptableRateChart({ onSelect }) {
     <div className="rate-chart">
       <div className="chart-toolbar">
         <div className="chart-legend" aria-label="검체 범례">
-          {unacceptableRateData.specimens.map((specimen) => (
+          {data.specimens.map((specimen) => (
             <span key={specimen.key}>
               <i style={{ backgroundColor: specimen.color }} />
               {specimen.key}
@@ -1308,19 +1652,287 @@ function MakerDoughnutChart({ makers }) {
   return (
     <canvas
       ref={canvasRef}
-      aria-label="제조사별 Unacceptable 기관 수 비율 도넛 차트"
+      aria-label="세분류별 기관 비율 및 Unacceptable 기관 수 도넛 차트"
     />
   );
 }
 
-function TrendLineChart({ selection }) {
+
+function DetailBreakdownChart({ makers }) {
   const canvasRef = useRef(null);
-  const selectedTest = unacceptableRateData.tests[selection.testIndex];
-  const selectedSpecimen =
-    unacceptableRateData.specimens[selection.specimenIndex];
+  const unacceptableCanvasRef = useRef(null);
+  const chartHeight = Math.max(340, makers.length * 38);
+  const unacceptableChartHeight = Math.max(300, makers.length * 34);
 
   useEffect(() => {
-    const trendData = getTrendData(selection);
+    if (
+      !canvasRef.current ||
+      !unacceptableCanvasRef.current ||
+      makers.length === 0
+    ) {
+      return undefined;
+    }
+
+    const unacceptableCounts = makers.map(
+      (maker) => maker.unacceptableCount ?? maker.count,
+    );
+    const acceptableCounts = makers.map((maker, index) =>
+      Math.max(0, maker.count - unacceptableCounts[index]),
+    );
+    const maxCount = Math.max(...makers.map((maker) => maker.count), 1);
+    const maxUnacceptableCount = Math.max(...unacceptableCounts, 1);
+
+    const chart = new Chart(canvasRef.current, {
+      type: "bar",
+      data: {
+        labels: makers.map((maker) => maker.name),
+        datasets: [
+          {
+            label: "Unacceptable 기관",
+            data: unacceptableCounts,
+            backgroundColor: "rgba(244, 63, 94, 0.82)",
+            borderColor: "#e11d48",
+            borderWidth: 1,
+            borderRadius: 3,
+            stack: "institution",
+            barPercentage: 0.72,
+            categoryPercentage: 0.72,
+          },
+          {
+            label: "Acceptable 기관",
+            data: acceptableCounts,
+            backgroundColor: "rgba(37, 48, 74, 0.14)",
+            borderColor: "#cfd7e6",
+            borderWidth: 1,
+            borderRadius: 3,
+            stack: "institution",
+            barPercentage: 0.72,
+            categoryPercentage: 0.72,
+          },
+        ],
+      },
+      options: {
+        indexAxis: "y",
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        interaction: {
+          intersect: false,
+          mode: "index",
+        },
+        plugins: {
+          legend: {
+            position: "top",
+            align: "start",
+            labels: {
+              boxWidth: 10,
+              boxHeight: 10,
+              color: "#25304a",
+              font: {
+                size: 11,
+                weight: 700,
+              },
+            },
+          },
+          tooltip: {
+            backgroundColor: "#fff",
+            bodyColor: "#25304a",
+            borderColor: "#d9e1ed",
+            borderWidth: 1,
+            displayColors: true,
+            padding: 10,
+            titleColor: "#111827",
+            callbacks: {
+              afterBody(items) {
+                const maker = makers[items[0].dataIndex];
+                const unacceptableCount = unacceptableCounts[items[0].dataIndex] ?? 0;
+                const unacceptableRate = Number.isFinite(maker.rate)
+                  ? maker.rate
+                  : maker.total > 0
+                    ? (unacceptableCount / maker.total) * 100
+                    : 0;
+
+                return [
+                  `전체: ${maker.count.toLocaleString()} 기관`,
+                  `Unacceptable: ${unacceptableCount.toLocaleString()} 기관 (${formatPercent(unacceptableRate)})`,
+                ];
+              },
+              label(item) {
+                return `${item.dataset.label}: ${Number(item.parsed.x).toLocaleString()} 기관`;
+              },
+            },
+          },
+        },
+        scales: {
+          x: {
+            stacked: true,
+            beginAtZero: true,
+            suggestedMax: Math.ceil(maxCount * 1.12),
+            border: {
+              color: "#cfd7e6",
+            },
+            grid: {
+              color: "#e6ebf2",
+            },
+            ticks: {
+              color: "#25304a",
+              precision: 0,
+              font: {
+                size: 11,
+              },
+            },
+          },
+          y: {
+            stacked: true,
+            grid: {
+              display: false,
+            },
+            ticks: {
+              color: "#111827",
+              font: {
+                size: 11,
+                weight: 700,
+              },
+              callback(value) {
+                const label = this.getLabelForValue(value);
+                return label.length > 16 ? `${label.slice(0, 16)}...` : label;
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const unacceptableChart = new Chart(unacceptableCanvasRef.current, {
+      type: "bar",
+      data: {
+        labels: makers.map((maker) => maker.name),
+        datasets: [
+          {
+            label: "Unacceptable 기관수",
+            data: unacceptableCounts,
+            backgroundColor: "rgba(244, 63, 94, 0.82)",
+            borderColor: "#e11d48",
+            borderWidth: 1,
+            borderRadius: 3,
+            barPercentage: 0.7,
+            categoryPercentage: 0.72,
+          },
+        ],
+      },
+      options: {
+        indexAxis: "y",
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        plugins: {
+          legend: {
+            display: false,
+          },
+          tooltip: {
+            backgroundColor: "#fff",
+            bodyColor: "#25304a",
+            borderColor: "#d9e1ed",
+            borderWidth: 1,
+            displayColors: false,
+            padding: 10,
+            titleColor: "#111827",
+            callbacks: {
+              label(item) {
+                const maker = makers[item.dataIndex];
+                const count = unacceptableCounts[item.dataIndex] ?? 0;
+                const rate = Number.isFinite(maker.rate)
+                  ? maker.rate
+                  : maker.total > 0
+                    ? (count / maker.total) * 100
+                    : 0;
+
+                return `Unacceptable: ${count.toLocaleString()} 기관 (${formatPercent(rate)})`;
+              },
+            },
+          },
+        },
+        scales: {
+          x: {
+            beginAtZero: true,
+            suggestedMax: Math.ceil(maxUnacceptableCount * 1.18),
+            border: {
+              color: "#cfd7e6",
+            },
+            grid: {
+              color: "#e6ebf2",
+            },
+            ticks: {
+              color: "#25304a",
+              precision: 0,
+              font: {
+                size: 11,
+              },
+            },
+          },
+          y: {
+            grid: {
+              display: false,
+            },
+            ticks: {
+              color: "#111827",
+              font: {
+                size: 11,
+                weight: 700,
+              },
+              callback(value) {
+                const label = this.getLabelForValue(value);
+                return label.length > 16 ? `${label.slice(0, 16)}...` : label;
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return () => {
+      chart.destroy();
+      unacceptableChart.destroy();
+    };
+  }, [makers]);
+
+  if (makers.length === 0) {
+    return (
+      <div className="maker-chart-empty">
+        <b>표시할 세분류 데이터가 없습니다.</b>
+      </div>
+    );
+  }
+
+  return (
+    <div className="maker-chart-stack">
+      <div className="maker-chart-panel">
+        <canvas
+          ref={canvasRef}
+          style={{ height: `${chartHeight}px` }}
+          aria-label="세분류별 전체 기관 수 안의 Unacceptable 기관 수 누적 막대그래프"
+        />
+      </div>
+      <div className="maker-chart-panel unacceptable-count-chart-panel">
+        <h5>세분류별 Unacceptable 기관수</h5>
+        <canvas
+          ref={unacceptableCanvasRef}
+          style={{ height: `${unacceptableChartHeight}px` }}
+          aria-label="detlchassinm 별 Unacceptable 기관수 막대그래프"
+        />
+      </div>
+    </div>
+  );
+}
+
+function TrendLineChart({ selection, data = unacceptableRateData }) {
+  const canvasRef = useRef(null);
+  const selectedTest = data.tests[selection.testIndex] ?? data.tests[0];
+  const selectedSpecimen =
+    data.specimens[selection.specimenIndex] ?? data.specimens[0];
+
+  useEffect(() => {
+    const trendData = getTrendData(selection, data);
     const maxValue = Math.max(...trendData.map((item) => item.value));
     const chart = new Chart(canvasRef.current, {
       type: "bar",
@@ -1425,9 +2037,12 @@ function TrendLineChart({ selection }) {
   }, [
     selection.testIndex,
     selection.specimenIndex,
-    selectedSpecimen.key,
-    selectedTest.name,
+    data,
+    selectedSpecimen?.key,
+    selectedTest?.name,
   ]);
+
+  if (!selectedTest || !selectedSpecimen) return null;
 
   return (
     <div className="trend-chart">
@@ -1447,12 +2062,12 @@ function TrendLineChart({ selection }) {
   );
 }
 
-function SelectedTestDetail({ selection }) {
+function SelectedTestDetail({ selection, data = unacceptableRateData }) {
   const [showInstitutionGrid, setShowInstitutionGrid] = useState(false);
-  const selectedTest = unacceptableRateData.tests[selection.testIndex];
+  const selectedTest = data.tests[selection.testIndex] ?? data.tests[0];
   const selectedSpecimen =
-    unacceptableRateData.specimens[selection.specimenIndex];
-  const makers = getMakerData(selection);
+    data.specimens[selection.specimenIndex] ?? data.specimens[0];
+  const makers = getMakerData(selection, data);
   const total = makers.reduce((sum, maker) => sum + maker.count, 0);
   const selectedInstitutionRows = getInstitutionRowsForMakers(makers);
 
@@ -1463,6 +2078,8 @@ function SelectedTestDetail({ selection }) {
   const toggleInstitutionGrid = () => {
     setShowInstitutionGrid((current) => !current);
   };
+
+  if (!selectedTest || !selectedSpecimen) return null;
 
   return (
     <>
@@ -1477,8 +2094,8 @@ function SelectedTestDetail({ selection }) {
         </div>
       </div>
 
-      <h4>제조사별 Unacceptable 기관 수 비율 ({selectedSpecimen.key} 기준)</h4>
-      <div className="donut-layout">
+      <h4>세분류별 Unacceptable 기관수 ({selectedSpecimen.key} 기준)</h4>
+      <div className="donut-layout chemistry-detail-donut-layout">
         <div
           className="donut-box"
           role="button"
@@ -1495,22 +2112,11 @@ function SelectedTestDetail({ selection }) {
         >
           <MakerDoughnutChart makers={makers} />
           <div className="donut-center" aria-hidden="true">
-            <strong>총 {total}개</strong>
+            <strong>총 {total.toLocaleString()}개</strong>
             <span>기관</span>
           </div>
         </div>
-        <div className="maker-list">
-          {makers.map((maker) => (
-            <div className="maker-item" key={maker.name}>
-              <i style={{ backgroundColor: maker.color }} />
-              <b>{maker.name}</b>
-              <span>
-                {maker.count} 기관 ({formatPercent((maker.count / total) * 100)}
-                )
-              </span>
-            </div>
-          ))}
-        </div>
+        <DetailBreakdownChart makers={makers} />
       </div>
 
       {showInstitutionGrid && (
@@ -1518,7 +2124,7 @@ function SelectedTestDetail({ selection }) {
           <div className="institution-list-head">
             <h4>Unacceptable 기관 목록</h4>
             <div className="institution-list-actions">
-              <span>전체 {selectedInstitutionRows.length}개 기관</span>
+              <span>전체 {selectedInstitutionRows.length.toLocaleString()}개 기관</span>
             </div>
           </div>
           <AckDataGrid
@@ -1581,266 +2187,225 @@ function NonconformanceInstitutionGrid({
   );
 }
 
-function NonconformanceSdiChart({ selectedTestIndex, onSelectTest }) {
-  const canvasRef = useRef(null);
-  const chartRef = useRef(null);
-  const scrollRef = useRef(null);
-  const [zoomLevel, setZoomLevel] = useState(1);
-  const selectedTest = unacceptableRateData.tests[selectedTestIndex];
-  const baseChartWidth = Math.max(1640, unacceptableRateData.tests.length * 64);
-  const chartWidth = Math.round(baseChartWidth * zoomLevel);
-  const clampZoom = (nextZoom) => Math.min(2, Math.max(0.75, nextZoom));
-
-  const changeZoom = (nextZoom) => {
-    setZoomLevel(clampZoom(nextZoom));
-  };
+function NonconformanceSdiChart({ selectedTest, specimens }) {
+  const l1CanvasRef = useRef(null);
+  const l2CanvasRef = useRef(null);
+  const points = selectedTest?.sdiPoints ?? [];
 
   useEffect(() => {
-    const chart = new Chart(canvasRef.current, {
-      type: "bar",
-      data: {
-        labels: unacceptableRateData.tests.map((test) => test.code),
-        datasets: unacceptableRateData.specimens.map(
-          (specimen, specimenIndex) => ({
+    if (!selectedTest || points.length === 0) return undefined;
+
+    const createSdiChart = (canvas, axisKey, titleText) => {
+      if (!canvas) return null;
+
+      const datasets = specimens
+        .map((specimen) => {
+          const specimenPoints = points
+            .filter((point) => point.specimenKey === specimen.key)
+            .map((point, index) => ({
+              ...point,
+              x: index + 1,
+              y: axisKey === "l1" ? point.x : point.y,
+              sdiValue: axisKey === "l1" ? point.x : point.y,
+            }));
+
+          return {
             label: specimen.key,
-            data: unacceptableRateData.tests.map((_test, testIndex) =>
-              getSdiValue(testIndex, specimenIndex),
+            data: specimenPoints,
+            pointRadius: specimenPoints.map((point) =>
+              point.isUnacceptable ? 5 : 3,
             ),
-            backgroundColor: unacceptableRateData.tests.map(
-              (_test, testIndex) =>
-                testIndex === selectedTestIndex
-                  ? specimen.color
-                  : colorWithAlpha(specimen.color, 0.24),
+            pointHoverRadius: specimenPoints.map((point) =>
+              point.isUnacceptable ? 7 : 5,
             ),
-            borderColor: unacceptableRateData.tests.map((_test, testIndex) =>
-              testIndex === selectedTestIndex
-                ? specimen.color
-                : colorWithAlpha(specimen.color, 0.44),
+            pointBackgroundColor: specimenPoints.map((point) =>
+              point.isUnacceptable
+                ? "#e11d48"
+                : colorWithAlpha(specimen.color, 0.58),
             ),
-            borderWidth: 1,
-            borderRadius: 2,
-            barPercentage: 0.82,
-            categoryPercentage: 0.72,
-          }),
-        ),
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        animation: false,
-        onClick(_event, elements) {
-          if (!elements.length) return;
-          onSelectTest(elements[0].index);
-        },
-        interaction: {
-          intersect: false,
-          mode: "index",
-        },
-        plugins: {
-          legend: {
-            display: false,
+            pointBorderColor: specimenPoints.map((point) =>
+              point.isUnacceptable ? "#be123c" : specimen.color,
+            ),
+            pointBorderWidth: specimenPoints.map((point) =>
+              point.isUnacceptable ? 1.5 : 1,
+            ),
+          };
+        })
+        .filter((dataset) => dataset.data.length > 0);
+
+      return new Chart(canvas, {
+        type: "scatter",
+        data: { datasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false,
+          interaction: {
+            intersect: false,
+            mode: "nearest",
           },
-          tooltip: {
-            callbacks: {
-              title(items) {
-                return unacceptableRateData.tests[items[0].dataIndex].code;
-              },
-              label(item) {
-                return `${item.dataset.label} SDI: ${item.parsed.y}`;
-              },
-            },
-          },
-        },
-        scales: {
-          x: {
-            title: {
-              display: true,
-              text: "검사항목",
-              color: "#25304a",
-              font: {
-                size: 12,
-                weight: "700",
+          plugins: {
+            legend: {
+              position: "top",
+              align: "start",
+              labels: {
+                boxWidth: 10,
+                boxHeight: 10,
+                color: "#25304a",
+                font: {
+                  size: 11,
+                  weight: 700,
+                },
               },
             },
-            grid: {
-              display: false,
-            },
-            ticks: {
-              color(context) {
-                return context.index === selectedTestIndex
-                  ? "#b32572"
-                  : "#1f2d4d";
+            tooltip: {
+              backgroundColor: "#fff",
+              bodyColor: "#25304a",
+              borderColor: "#d9e1ed",
+              borderWidth: 1,
+              displayColors: true,
+              padding: 10,
+              titleColor: "#111827",
+              callbacks: {
+                title(items) {
+                  const point = items[0].raw;
+                  return point.institutionName;
+                },
+                label(item) {
+                  const point = item.raw;
+                  return [
+                    "검체: " + point.specimenKey,
+                    titleText + ": " + point.sdiValue.toFixed(2),
+                    "결과: " + (point.result || "-"),
+                    "판정: " + (point.judgment || "-"),
+                  ];
+                },
               },
-              font(context) {
-                return {
-                  size: 10,
-                  weight: context.index === selectedTestIndex ? "800" : "600",
-                };
-              },
-              maxRotation: 0,
-              minRotation: 0,
             },
           },
-          y: {
-            min: -6,
-            max: 6,
-            title: {
-              display: true,
-              text: "SDI",
-              color: "#25304a",
-              font: {
-                size: 12,
-                weight: "700",
+          scales: {
+            x: {
+              title: {
+                display: true,
+                text: "기관 순번",
+                color: "#25304a",
+                font: {
+                  size: 12,
+                  weight: "700",
+                },
+              },
+              border: {
+                color: "#cfd7e6",
+              },
+              grid: {
+                color: "#eef2f7",
+              },
+              ticks: {
+                color: "#1f2d4d",
+                maxTicksLimit: 8,
+                font: {
+                  size: 11,
+                },
               },
             },
-            border: {
-              color: "#cfd7e6",
-            },
-            grid: {
-              color(context) {
-                return context.tick.value === 0 ? "#8792a5" : "#dce3ed";
+            y: {
+              min: -6,
+              max: 6,
+              title: {
+                display: true,
+                text: titleText,
+                color: "#25304a",
+                font: {
+                  size: 12,
+                  weight: "700",
+                },
               },
-            },
-            ticks: {
-              color: "#1f2d4d",
-              font: {
-                size: 11,
+              border: {
+                color: "#cfd7e6",
               },
-              stepSize: 2,
+              grid: {
+                color(context) {
+                  return context.tick.value === 0 ? "#8792a5" : "#dce3ed";
+                },
+              },
+              ticks: {
+                color: "#1f2d4d",
+                stepSize: 2,
+                font: {
+                  size: 11,
+                },
+              },
             },
           },
         },
-      },
-    });
-    chartRef.current = chart;
+      });
+    };
+
+    const charts = [
+      createSdiChart(l1CanvasRef.current, "l1", "SDI_L1"),
+      createSdiChart(l2CanvasRef.current, "l2", "SDI_L2"),
+    ];
 
     return () => {
-      chart.destroy();
-      chartRef.current = null;
+      charts.forEach((chart) => chart?.destroy());
     };
-  }, [onSelectTest, selectedTestIndex]);
+  }, [points, selectedTest, specimens]);
 
-  useEffect(() => {
-    chartRef.current?.resize();
-  }, [chartWidth]);
-
-  useEffect(() => {
-    const scrollNode = scrollRef.current;
-    if (!scrollNode) return;
-
-    const categoryWidth = chartWidth / unacceptableRateData.tests.length;
-    const selectedCenter =
-      categoryWidth * selectedTestIndex + categoryWidth / 2;
-    const maxScrollLeft = Math.max(
-      0,
-      scrollNode.scrollWidth - scrollNode.clientWidth,
+  if (!selectedTest || points.length === 0) {
+    return (
+      <div className="sdi-empty-state">
+        선택 검사에 표시할 SDI 데이터가 없습니다.
+      </div>
     );
-    const nextScrollLeft = Math.min(
-      maxScrollLeft,
-      Math.max(0, selectedCenter - scrollNode.clientWidth / 2),
-    );
-
-    scrollNode.scrollTo({
-      left: nextScrollLeft,
-      behavior: "smooth",
-    });
-  }, [chartWidth, selectedTestIndex]);
-
-  useEffect(() => {
-    const scrollNode = scrollRef.current;
-    if (!scrollNode) return undefined;
-
-    const handleWheel = (event) => {
-      if (!event.ctrlKey) return;
-
-      event.preventDefault();
-      event.stopPropagation();
-      setZoomLevel((currentZoom) =>
-        clampZoom(currentZoom + (event.deltaY < 0 ? 0.25 : -0.25)),
-      );
-    };
-
-    scrollNode.addEventListener("wheel", handleWheel, { passive: false });
-
-    return () => {
-      scrollNode.removeEventListener("wheel", handleWheel);
-    };
-  }, []);
+  }
 
   return (
     <div className="sdi-chart">
-      <div className="chart-toolbar">
-        <div className="chart-legend" aria-label="SDI 검체 범례">
-          {unacceptableRateData.specimens.map((specimen) => (
-            <span key={specimen.key}>
-              <i style={{ backgroundColor: specimen.color }} />
-              {specimen.key}
-            </span>
-          ))}
+      <p className="sdi-selection">
+        선택 검사: {selectedTest.name} · 참여기관 {selectedTest.participatingCount.toLocaleString()}개 · SDI 데이터 {points.length.toLocaleString()}건
+      </p>
+      <div className="sdi-split-grid">
+        <div className="sdi-split-item">
+          <h4>SDI_L1 분포</h4>
+          <div className="sdi-canvas chemistry-sdi-scatter-canvas">
+            <canvas ref={l1CanvasRef} aria-label="선택 검사 SDI_L1 분포도" />
+          </div>
         </div>
-        <div className="chart-zoom" aria-label="SDI 그래프 확대 축소">
-          <button
-            type="button"
-            onClick={() => changeZoom(zoomLevel - 0.25)}
-            aria-label="SDI 그래프 축소"
-          >
-            -
-          </button>
-          <input
-            type="range"
-            min="75"
-            max="200"
-            step="25"
-            value={Math.round(zoomLevel * 100)}
-            aria-label="SDI 그래프 확대율"
-            onChange={(event) => changeZoom(Number(event.target.value) / 100)}
-          />
-          <button
-            type="button"
-            onClick={() => changeZoom(zoomLevel + 0.25)}
-            aria-label="SDI 그래프 확대"
-          >
-            +
-          </button>
-          <button
-            type="button"
-            onClick={() => changeZoom(1)}
-            aria-label="SDI 그래프 확대 초기화"
-          >
-            100%
-          </button>
-        </div>
-      </div>
-      <p className="sdi-selection">선택 검사: {selectedTest.code}</p>
-      <div
-        ref={scrollRef}
-        className="chart-scroll"
-        aria-label="검사항목별 SDI 그래프 스크롤 영역"
-      >
-        <div className="sdi-canvas" style={{ width: `${chartWidth}px` }}>
-          <canvas ref={canvasRef} aria-label="검사항목별 SDI 분포 막대그래프" />
+        <div className="sdi-split-item">
+          <h4>SDI_L2 분포</h4>
+          <div className="sdi-canvas chemistry-sdi-scatter-canvas">
+            <canvas ref={l2CanvasRef} aria-label="선택 검사 SDI_L2 분포도" />
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-function NonconformanceAnalysis() {
+function NonconformanceAnalysis({ rows = [] }) {
+  const nonconformanceData = useMemo(
+    () => createChemistryNonconformanceData(rows),
+    [rows],
+  );
   const [selectedTestIndex, setSelectedTestIndex] = useState(0);
   const [institutionTarget, setInstitutionTarget] = useState(null);
-  const selectedTest = unacceptableRateData.tests[selectedTestIndex];
+  const selectedTest =
+    nonconformanceData.tests[selectedTestIndex] ?? nonconformanceData.tests[0];
   const selectedTargetTest = institutionTarget
-    ? unacceptableRateData.tests[institutionTarget.testIndex]
+    ? nonconformanceData.tests[institutionTarget.testIndex]
     : null;
   const selectedTargetSpecimen = institutionTarget
-    ? unacceptableRateData.specimens[institutionTarget.specimenIndex]
+    ? selectedTargetTest?.specimenSummaries[institutionTarget.specimenIndex]
     : null;
-  const selectedRows = institutionTarget
-    ? getNonconformanceInstitutionRows(
-        institutionTarget.testIndex,
-        institutionTarget.specimenIndex,
-      )
-    : [];
+  const selectedRows = selectedTargetSpecimen?.rows ?? [];
+
+  useEffect(() => {
+    setSelectedTestIndex((currentIndex) => {
+      const maxIndex = Math.max(nonconformanceData.tests.length - 1, 0);
+      return Math.min(currentIndex, maxIndex);
+    });
+    setInstitutionTarget(null);
+  }, [nonconformanceData.tests.length]);
 
   const selectCard = (testIndex) => {
     setSelectedTestIndex(testIndex);
@@ -1867,15 +2432,30 @@ function NonconformanceAnalysis() {
     });
   };
 
+  if (nonconformanceData.tests.length === 0) {
+    return (
+      <section className="nonconformance-view">
+        <article className="panel nonconformance-card-panel">
+          <div className="panel-head">
+            <div>
+              <h3>검사항목별 Unacceptable 상세현황</h3>
+              <p>CSV 데이터를 불러오는 중입니다</p>
+            </div>
+          </div>
+        </article>
+      </section>
+    );
+  }
+
   return (
     <section className="nonconformance-view">
       <article className="panel nonconformance-card-panel">
         <div className="panel-head">
           <div>
             <h3>검사항목별 Unacceptable 상세현황</h3>
-            <p>검체별 비교를 통해 특정 검체 문제 여부 파악</p>
+            <p>검체별 Unacceptable 기관수</p>
           </div>
-          <span>선택 검사: {selectedTest.code}</span>
+          <span>선택 검사: {selectedTest?.name}</span>
         </div>
 
         <div
@@ -1883,14 +2463,12 @@ function NonconformanceAnalysis() {
           aria-label="검사항목별 Unacceptable 상세현황 카드 목록"
         >
           <div className="unacc-card-grid">
-            {unacceptableRateData.tests.map((test, testIndex) => {
-              const totalUnacceptableCount =
-                getTotalUnacceptableInstitutionCount(testIndex);
+            {nonconformanceData.tests.map((test, testIndex) => {
               const isSelected = selectedTestIndex === testIndex;
 
               return (
                 <article
-                  className={`unacc-card${isSelected ? " selected" : ""}`}
+                  className={"unacc-card" + (isSelected ? " selected" : "")}
                   key={test.code}
                   role="button"
                   tabIndex={0}
@@ -1899,62 +2477,46 @@ function NonconformanceAnalysis() {
                   onKeyDown={(event) => handleCardKeyDown(event, testIndex)}
                 >
                   <div className="unacc-card-title">
-                    <h4>{test.code}</h4>
+                    <h4>{test.name}</h4>
                   </div>
 
                   <div className="unacc-card-metrics">
                     <div>
                       <span>참여기관</span>
-                      <strong>
-                        {getParticipatingCount(testIndex).toLocaleString()}
-                      </strong>
+                      <strong>{test.participatingCount.toLocaleString()}</strong>
                     </div>
                     <div>
                       <span>1개이상 Unacc판정받은기관</span>
                       <strong className="danger">
-                        {totalUnacceptableCount || "-"}
+                        {test.totalUnacceptableCount || "-"}
                       </strong>
                     </div>
                   </div>
 
                   <div className="unacc-specimen-grid">
-                    {unacceptableRateData.specimens.map(
-                      (specimen, specimenIndex) => {
-                        const count = getUnacceptableInstitutionCount(
-                          testIndex,
-                          specimenIndex,
-                        );
-
-                        return (
-                          <div
-                            className="unacc-specimen-cell"
-                            key={specimen.key}
-                          >
-                            <span>{specimen.key}</span>
-                            <b>{formatPercent(test.values[specimenIndex])}</b>
-                            <button
-                              type="button"
-                              className="unacc-count-button"
-                              aria-controls="nonconformance-institution-list"
-                              aria-expanded={
-                                institutionTarget?.testIndex === testIndex &&
-                                institutionTarget?.specimenIndex ===
-                                  specimenIndex
-                              }
-                              onClick={(event) =>
-                                toggleInstitutionList(
-                                  event,
-                                  testIndex,
-                                  specimenIndex,
-                                )
-                              }
-                            >
-                              {count}기관
-                            </button>
-                          </div>
-                        );
-                      },
-                    )}
+                    {test.specimenSummaries.map((specimen, specimenIndex) => (
+                      <div
+                        className="unacc-specimen-cell"
+                        key={specimen.key}
+                      >
+                        <span>{specimen.key}</span>
+                        <b>{formatPercent(specimen.rate)}</b>
+                        <button
+                          type="button"
+                          className="unacc-count-button"
+                          aria-controls="nonconformance-institution-list"
+                          aria-expanded={
+                            institutionTarget?.testIndex === testIndex &&
+                            institutionTarget?.specimenIndex === specimenIndex
+                          }
+                          onClick={(event) =>
+                            toggleInstitutionList(event, testIndex, specimenIndex)
+                          }
+                        >
+                          {specimen.unacceptableCount.toLocaleString()}기관
+                        </button>
+                      </div>
+                    ))}
                   </div>
                 </article>
               );
@@ -1975,14 +2537,14 @@ function NonconformanceAnalysis() {
       <article className="panel sdi-panel">
         <div className="panel-head">
           <div>
-            <h3>검사항목별 SDI 분포</h3>
-            <p>상단 카드에서 검사를 선택하면 해당 검사가 강조됩니다</p>
+            <h3>선택 검사 SDI 분포도</h3>
+            <p>카드에서 선택한 검사에 대한 SDI_L1, SDI_L2 분포</p>
           </div>
           <span>단위: SDI</span>
         </div>
         <NonconformanceSdiChart
-          selectedTestIndex={selectedTestIndex}
-          onSelectTest={setSelectedTestIndex}
+          selectedTest={selectedTest}
+          specimens={nonconformanceData.specimens}
         />
       </article>
     </section>
@@ -2070,6 +2632,7 @@ const qualitativeGridColumns = [
   {
     field: "프로그램명",
     headerName: "프로그램명",
+    autoMerge: true,
     width: 74,
     filter: "checklist",
     sortable: true,
@@ -2078,6 +2641,7 @@ const qualitativeGridColumns = [
   {
     field: "상위검사명",
     headerName: "상위검사명",
+    autoMerge: true,
     width: 90,
     filter: "checklist",
     sortable: true,
@@ -2102,6 +2666,7 @@ const qualitativeGridColumns = [
   {
     field: "기준분류",
     headerName: "기준분류",
+    autoMerge: true,
     width: 132,
     filter: "checklist",
     sortable: true,
@@ -2349,6 +2914,18 @@ function formatTrendCount(value) {
 }
 
 // 추이 히트맵 셀 ? 셀을 꽉 채우는 배경으로 rate 톤(high/warning/low/empty) 표현
+const trendRateCellStyles = {
+  low: { backgroundColor: "#e7f5ec" },
+  warning: { backgroundColor: "#fff3cf" },
+  high: { backgroundColor: "#ffe7ea" },
+  empty: { backgroundColor: "#f4f6f9" },
+  current: { backgroundColor: "#b8daf8" },
+};
+
+function getTrendRateCellStyle(value, isCurrent) {
+  if (isCurrent) return trendRateCellStyles.current;
+  return trendRateCellStyles[getTrendRateTone(value?.rate)];
+}
 function TrendRateGridCell({ value, isCurrent }) {
   const rate = value?.rate;
   const tone = getTrendRateTone(rate);
@@ -2397,7 +2974,7 @@ function buildTrendGridColumns(periods, nameHeader) {
       ),
     },
     ...periods.map((period, index) => ({
-      field: "code",
+      field: `periodValues.${index}`,
       colId: `period-${index}`,
       headerName: period.label,
       align: "center",
@@ -2410,6 +2987,8 @@ function buildTrendGridColumns(periods, nameHeader) {
           isCurrent={period.isCurrent}
         />
       ),
+      cellStyle: ({ row, value }) =>
+        getTrendRateCellStyle(value ?? row.periodValues[index], period.isCurrent),
     })),
     {
       field: "trendValue",
@@ -4624,6 +5203,12 @@ function App() {
   const [activeTab, setActiveTab] = useState("overview");
   const [isStatisticsConfirmed, setIsStatisticsConfirmed] = useState(false);
   const [statisticsDialog, setStatisticsDialog] = useState(null);
+  const [chemistryRows, setChemistryRows] = useState([]);
+  const chemistryDashboardData = useMemo(
+    () => createChemistryDashboardData(chemistryRows),
+    [chemistryRows],
+  );
+  const chemistrySummary = chemistryDashboardData.summary;
   const activeTabLabel = dashboardTabs.find((tab) => tab.id === activeTab)?.label;
 
   useEffect(() => {
@@ -4645,6 +5230,44 @@ function App() {
         ? "소변검사 대시보드"
         : "일반화학검사 대시보드";
   }, [activePage]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    fetch(getPublicAssetUrl(chemistryDataFileName))
+      .then((response) => response.arrayBuffer())
+      .then((buffer) => new TextDecoder("euc-kr").decode(buffer))
+      .then((csvText) => {
+        if (isActive) setChemistryRows(parseCsv(csvText));
+      })
+      .catch(() => {
+        if (isActive) setChemistryRows([]);
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    setSelection((currentSelection) => {
+      const maxTestIndex = Math.max(chemistryDashboardData.tests.length - 1, 0);
+      const maxSpecimenIndex = Math.max(chemistryDashboardData.specimens.length - 1, 0);
+      const nextSelection = {
+        testIndex: Math.min(currentSelection.testIndex, maxTestIndex),
+        specimenIndex: Math.min(currentSelection.specimenIndex, maxSpecimenIndex),
+      };
+
+      if (
+        nextSelection.testIndex === currentSelection.testIndex &&
+        nextSelection.specimenIndex === currentSelection.specimenIndex
+      ) {
+        return currentSelection;
+      }
+
+      return nextSelection;
+    });
+  }, [chemistryDashboardData]);
 
   useEffect(() => {
     if (!dashboardTabs.some((tab) => tab.id === activeTab)) {
@@ -4694,7 +5317,7 @@ function App() {
 
   return (
     <div className="app-shell">
-      <AppHeader title="2025년 1회차 일반화학검사" />
+      <AppHeader title="2025년 04회차 일반화학검사" />
       <TatStatusHeader
         isStatisticsConfirmed={isStatisticsConfirmed}
         onOpenStatisticsConfirm={openStatisticsConfirm}
@@ -4710,7 +5333,7 @@ function App() {
         {activeTab === "overview" ? (
           <>
             <section className="summary-grid" aria-label="주요 지표">
-              {mockSummary.map((item) => (
+              {chemistrySummary.map((item) => (
                 <article className="summary-card" key={item.label}>
                   <span className="summary-icon" aria-hidden="true" />
                   <div>
@@ -4731,14 +5354,20 @@ function App() {
                   </div>
                   <span>단위: %</span>
                 </div>
-                <UnacceptableRateChart onSelect={setSelection} />
+                <UnacceptableRateChart
+                  data={chemistryDashboardData}
+                  onSelect={setSelection}
+                />
               </article>
 
               <article className="panel detail-panel">
                 <div className="panel-head">
                   <h3>선택한 검사 상세</h3>
                 </div>
-                <SelectedTestDetail selection={selection} />
+                <SelectedTestDetail
+                  data={chemistryDashboardData}
+                  selection={selection}
+                />
               </article>
 
               <article className="panel trend-panel">
@@ -4749,12 +5378,12 @@ function App() {
                   </div>
                   <span>단위: 기관</span>
                 </div>
-                <TrendLineChart selection={selection} />
+                <TrendLineChart data={chemistryDashboardData} selection={selection} />
               </article>
             </section>
           </>
         ) : activeTab === "nonconformance" ? (
-          <NonconformanceAnalysis />
+          <NonconformanceAnalysis rows={chemistryRows} />
         ) : activeTab === "statistics-quantitative" ? (
           <StatisticsDetail />
         ) : activeTab === "trend" ? (

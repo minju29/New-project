@@ -10,9 +10,10 @@
     "preview": "vite preview --host 127.0.0.1"
   },
   "dependencies": {
-    "@ADS/data-grid": "^3.0.0",
-    "@ADS/tokens": "^0.2.0",
-    "@ADS/ui": "^0.5.4",
+    "@ADS/data-grid": "1.0.1",
+    "@ADS/icons": "1.0.0",
+    "@ADS/tokens": "1.0.0",
+    "@ADS/ui": "1.0.0",
     "@vitejs/plugin-react": "latest",
     "chart.js": "^4.5.1",
     "pretendard": "^1.3.9",
