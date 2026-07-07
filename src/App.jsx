@@ -1078,6 +1078,8 @@ function createChemistryNonconformanceData(rows) {
       test.sdiPoints.push({
         x: standardSdi,
         y: detailSdi,
+        standardCategory: row.stndchassinm || row.stndchassicd || "Unclassified",
+        detailCategory: row.detlchassinm || row.detlchassicd || "Unclassified",
         specimenKey,
         institutionCode,
         institutionName: row.cmpynm || institutionCode,
@@ -2190,13 +2192,59 @@ function NonconformanceInstitutionGrid({
 function NonconformanceSdiChart({ selectedTest, specimens }) {
   const l1CanvasRef = useRef(null);
   const l2CanvasRef = useRef(null);
-  const points = selectedTest?.sdiPoints ?? [];
+  const points = selectedTest?.sdiPoints?.filter((point) => point.isUnacceptable) ?? [];
+  const unacceptableInstitutionCount = new Set(
+    points.map((point) => point.institutionCode),
+  ).size;
 
   useEffect(() => {
     if (!selectedTest || points.length === 0) return undefined;
 
-    const createSdiChart = (canvas, axisKey, titleText) => {
+    const createSdiChart = (canvas, axisKey, titleText, xAxisTitle) => {
       if (!canvas) return null;
+
+      const sdiValues = points
+        .map((point) => (axisKey === "l1" ? point.x : point.y))
+        .filter((value) => Number.isFinite(value));
+      const minValue = Math.min(...sdiValues);
+      const maxValue = Math.max(...sdiValues);
+      const padding = Math.max((maxValue - minValue) * 0.12, 1);
+      const yMin = Math.floor(Math.min(-6, minValue - padding));
+      const yMax = Math.ceil(Math.max(6, maxValue + padding));
+      const yStepSize = yMax - yMin > 24 ? 5 : 2;
+      const normalRangeBandPlugin = {
+        id: `normal-sdi-range-${axisKey}`,
+        beforeDatasetsDraw(chart) {
+          const { ctx, chartArea, scales } = chart;
+          const yScale = scales.y;
+          if (!chartArea || !yScale) return;
+
+          const top = yScale.getPixelForValue(3);
+          const bottom = yScale.getPixelForValue(-3);
+          const bandTop = Math.max(chartArea.top, Math.min(top, bottom));
+          const bandBottom = Math.min(chartArea.bottom, Math.max(top, bottom));
+
+          ctx.save();
+          ctx.fillStyle = "rgba(34, 197, 94, 0.1)";
+          ctx.fillRect(
+            chartArea.left,
+            bandTop,
+            chartArea.right - chartArea.left,
+            bandBottom - bandTop,
+          );
+          ctx.setLineDash([5, 4]);
+          ctx.strokeStyle = "rgba(22, 163, 74, 0.55)";
+          ctx.lineWidth = 1;
+          [top, bottom].forEach((lineY) => {
+            if (lineY < chartArea.top || lineY > chartArea.bottom) return;
+            ctx.beginPath();
+            ctx.moveTo(chartArea.left, lineY);
+            ctx.lineTo(chartArea.right, lineY);
+            ctx.stroke();
+          });
+          ctx.restore();
+        },
+      };
 
       const datasets = specimens
         .map((specimen) => {
@@ -2204,31 +2252,24 @@ function NonconformanceSdiChart({ selectedTest, specimens }) {
             .filter((point) => point.specimenKey === specimen.key)
             .map((point, index) => ({
               ...point,
-              x: index + 1,
+              x:
+                axisKey === "l1" ? point.standardCategory : point.detailCategory,
               y: axisKey === "l1" ? point.x : point.y,
               sdiValue: axisKey === "l1" ? point.x : point.y,
+              categoryLabel:
+                axisKey === "l1" ? point.standardCategory : point.detailCategory,
             }));
 
           return {
             label: specimen.key,
             data: specimenPoints,
-            pointRadius: specimenPoints.map((point) =>
-              point.isUnacceptable ? 5 : 3,
+            pointRadius: specimenPoints.map(() => 5),
+            pointHoverRadius: specimenPoints.map(() => 7),
+            pointBackgroundColor: specimenPoints.map(() =>
+              colorWithAlpha(specimen.color, 0.72),
             ),
-            pointHoverRadius: specimenPoints.map((point) =>
-              point.isUnacceptable ? 7 : 5,
-            ),
-            pointBackgroundColor: specimenPoints.map((point) =>
-              point.isUnacceptable
-                ? "#e11d48"
-                : colorWithAlpha(specimen.color, 0.58),
-            ),
-            pointBorderColor: specimenPoints.map((point) =>
-              point.isUnacceptable ? "#be123c" : specimen.color,
-            ),
-            pointBorderWidth: specimenPoints.map((point) =>
-              point.isUnacceptable ? 1.5 : 1,
-            ),
+            pointBorderColor: specimenPoints.map(() => specimen.color),
+            pointBorderWidth: specimenPoints.map(() => 1.5),
           };
         })
         .filter((dataset) => dataset.data.length > 0);
@@ -2236,6 +2277,7 @@ function NonconformanceSdiChart({ selectedTest, specimens }) {
       return new Chart(canvas, {
         type: "scatter",
         data: { datasets },
+        plugins: [normalRangeBandPlugin],
         options: {
           responsive: true,
           maintainAspectRatio: false,
@@ -2275,6 +2317,7 @@ function NonconformanceSdiChart({ selectedTest, specimens }) {
                   const point = item.raw;
                   return [
                     "검체: " + point.specimenKey,
+                    xAxisTitle + ": " + (point.categoryLabel || "-"),
                     titleText + ": " + point.sdiValue.toFixed(2),
                     "결과: " + (point.result || "-"),
                     "판정: " + (point.judgment || "-"),
@@ -2285,9 +2328,11 @@ function NonconformanceSdiChart({ selectedTest, specimens }) {
           },
           scales: {
             x: {
+              type: "category",
+              offset: true,
               title: {
                 display: true,
-                text: "기관 순번",
+                text: xAxisTitle,
                 color: "#25304a",
                 font: {
                   size: 12,
@@ -2302,15 +2347,17 @@ function NonconformanceSdiChart({ selectedTest, specimens }) {
               },
               ticks: {
                 color: "#1f2d4d",
-                maxTicksLimit: 8,
+                autoSkip: false,
+                maxRotation: 45,
+                minRotation: 0,
                 font: {
-                  size: 11,
+                  size: 10,
                 },
               },
             },
             y: {
-              min: -6,
-              max: 6,
+              min: yMin,
+              max: yMax,
               title: {
                 display: true,
                 text: titleText,
@@ -2330,7 +2377,7 @@ function NonconformanceSdiChart({ selectedTest, specimens }) {
               },
               ticks: {
                 color: "#1f2d4d",
-                stepSize: 2,
+                stepSize: yStepSize,
                 font: {
                   size: 11,
                 },
@@ -2342,8 +2389,8 @@ function NonconformanceSdiChart({ selectedTest, specimens }) {
     };
 
     const charts = [
-      createSdiChart(l1CanvasRef.current, "l1", "SDI_L1"),
-      createSdiChart(l2CanvasRef.current, "l2", "SDI_L2"),
+      createSdiChart(l1CanvasRef.current, "l1", "SDI_L1", "stndchassinm"),
+      createSdiChart(l2CanvasRef.current, "l2", "SDI_L2", "detlchassinm"),
     ];
 
     return () => {
@@ -2354,7 +2401,7 @@ function NonconformanceSdiChart({ selectedTest, specimens }) {
   if (!selectedTest || points.length === 0) {
     return (
       <div className="sdi-empty-state">
-        선택 검사에 표시할 SDI 데이터가 없습니다.
+        선택 검사에 표시할 Unacceptable SDI 데이터가 없습니다.
       </div>
     );
   }
@@ -2362,7 +2409,7 @@ function NonconformanceSdiChart({ selectedTest, specimens }) {
   return (
     <div className="sdi-chart">
       <p className="sdi-selection">
-        선택 검사: {selectedTest.name} · 참여기관 {selectedTest.participatingCount.toLocaleString()}개 · SDI 데이터 {points.length.toLocaleString()}건
+        선택 검사: {selectedTest.name} · Unacceptable 기관 {unacceptableInstitutionCount.toLocaleString()}개 · SDI 데이터 {points.length.toLocaleString()}건
       </p>
       <div className="sdi-split-grid">
         <div className="sdi-split-item">
@@ -2537,8 +2584,8 @@ function NonconformanceAnalysis({ rows = [] }) {
       <article className="panel sdi-panel">
         <div className="panel-head">
           <div>
-            <h3>선택 검사 SDI 분포도</h3>
-            <p>카드에서 선택한 검사에 대한 SDI_L1, SDI_L2 분포</p>
+            <h3>선택 검사 Unacceptable SDI 분포도</h3>
+            <p>카드에서 선택한 검사 중 Unacceptable 기관의 SDI_L1, SDI_L2 분포</p>
           </div>
           <span>단위: SDI</span>
         </div>
