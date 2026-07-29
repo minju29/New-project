@@ -188,6 +188,21 @@ button {
   background: var(--panel);
 }
 
+.summary-card-clickable {
+  cursor: pointer;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.summary-card-clickable:hover {
+  border-color: var(--magenta);
+  box-shadow: 0 8px 18px rgba(160, 0, 86, 0.1);
+}
+
+.summary-card-clickable:focus-visible {
+  outline: 2px solid var(--magenta);
+  outline-offset: 2px;
+}
+
 .summary-icon {
   width: 51px;
   height: 51px;
@@ -477,13 +492,34 @@ button {
   border-bottom: 1px solid #dfe5ee;
 }
 
-.unacc-card-metrics > div {
+.unacc-card-metrics > div,
+.unacc-metric-button {
   min-width: 0;
 }
 
 .unacc-card-metrics > div + div {
   padding-left: 12px;
   border-left: 1px solid #dfe5ee;
+}
+
+.unacc-metric-button {
+  display: block;
+  width: 100%;
+  padding: 7px 8px 7px 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.unacc-metric-button:hover {
+  background: #f5f7fb;
+}
+
+.unacc-metric-button:focus-visible {
+  outline: 2px solid var(--magenta);
+  outline-offset: 2px;
 }
 
 .unacc-card-metrics span {
@@ -573,6 +609,70 @@ button {
   margin-top: 14px;
   padding-top: 14px;
   border-top: 1px solid var(--line);
+}
+
+.participation-dialog {
+  display: grid;
+  gap: 10px;
+  width: min(1500px, 94vw);
+  min-width: 0;
+  max-width: 94vw;
+}
+
+.participation-dialog-summary {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  color: #25304a;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.participation-data-grid {
+  width: 100%;
+  min-width: 0;
+  max-height: 62vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.participation-data-grid [data-slot="ack-data-grid-header-cell"],
+.participation-data-grid [data-slot="ack-data-grid-cell"],
+.participation-data-grid [data-slot="ack-data-grid-cell-value"] {
+  min-width: 0;
+}
+
+.participation-data-grid [data-slot="ack-data-grid-cell-value"] {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.test-list-dialog {
+  display: grid;
+  gap: 10px;
+  width: min(680px, 86vw);
+  min-width: 0;
+}
+
+.test-list-data-grid {
+  width: 100%;
+  min-width: 0;
+  max-height: 62vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.test-list-data-grid [data-slot="ack-data-grid-header-cell"],
+.test-list-data-grid [data-slot="ack-data-grid-cell"],
+.test-list-data-grid [data-slot="ack-data-grid-cell-value"] {
+  min-width: 0;
+}
+
+.test-list-data-grid [data-slot="ack-data-grid-cell-value"] {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .result-distribution-section {
@@ -1283,8 +1383,10 @@ button {
 .chart-scroll {
   width: 100%;
   height: 405px;
-  overflow: auto;
-  overscroll-behavior: contain;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  overscroll-behavior-y: auto;
   padding-bottom: 6px;
 }
 
@@ -1460,25 +1562,130 @@ button {
 }
 
 .chemistry-detail-donut-layout {
-  grid-template-columns: minmax(250px, 320px) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
+  justify-content: stretch;
   justify-items: stretch;
-  align-items: stretch;
+  align-items: start;
   gap: 18px;
 }
 
+.chemistry-count-note {
+  max-width: 640px;
+  margin: 6px 0 14px;
+  color: #5f6b7c;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.55;
+}
+
+.chemistry-detail-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 10px;
+}
+
+.chemistry-specimen-detail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.chemistry-specimen-detail-head h4 {
+  margin: 0;
+}
+
+.chemistry-collapse-button {
+  flex: 0 0 auto;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: #f9fafc;
+  color: #25304a;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.chemistry-collapse-button:hover {
+  border-color: #c6cedc;
+  background: #f3f5f8;
+}
+
+.chemistry-collapse-button:focus-visible {
+  outline: 2px solid var(--magenta);
+  outline-offset: 2px;
+}
+
+.chemistry-specimen-detail-list {
+  display: grid;
+  gap: 18px;
+}
+
+.chemistry-specimen-detail {
+  min-width: 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.chemistry-specimen-detail:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.chemistry-base-selection-row {
+  display: grid;
+  grid-template-columns: minmax(340px, 380px) minmax(0, 1fr);
+  gap: 22px;
+  align-items: start;
+}
+
+.chemistry-inline-institution-list {
+  min-width: 0;
+  width: 100%;
+  margin-top: 0;
+  padding-left: 24px;
+  border-left: 3px solid #111827;
+}
+
+.chemistry-inline-institution-list .institution-list-head {
+  margin-bottom: 4px;
+}
+
+.chemistry-inline-institution-list .institution-list-head h4 {
+  line-height: 1.2;
+}
+
 .chemistry-detail-donut-layout .donut-box {
+  width: 280px;
+  height: 280px;
   justify-self: center;
   align-self: start;
 }
 
-.chemistry-detail-donut-layout .maker-chart-panel {
+.chemistry-donut-stack {
+  display: grid;
+  gap: 18px;
+  justify-items: center;
+  align-content: start;
   width: 100%;
-  max-height: 520px;
-  padding: 6px 2px 0;
+  padding: 0 20px;
 }
 
-.chemistry-detail-donut-layout .maker-chart-panel canvas {
-  min-height: 340px;
+.chemistry-donut-block {
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+}
+
+.chemistry-donut-block h5 {
+  margin: 0;
+  color: #25304a;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.35;
 }
 
 .donut-box {
@@ -1587,52 +1794,122 @@ button {
   white-space: nowrap;
 }
 
+.detail-boxplot {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.detail-boxplot-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.detail-boxplot-head h5 {
+  margin: 0;
+  color: #25304a;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.detail-boxplot-head p {
+  margin: 4px 0 0;
+  color: #5f6b7c;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.detail-boxplot-head span {
+  flex: 0 0 auto;
+  color: #33415f;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.detail-boxplot-legend {
+  display: grid;
+  gap: 6px;
+  flex: 0 0 auto;
+  color: #33415f;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.detail-boxplot-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+
+.boxplot-legend-box {
+  width: 16px;
+  height: 10px;
+  border: 2px solid #ff704d;
+  border-radius: 2px;
+  background: rgba(255, 112, 77, 0.14);
+}
+
+.boxplot-legend-point {
+  width: 9px;
+  height: 9px;
+  border: 1px solid rgba(244, 114, 182, 0.72);
+  border-radius: 50%;
+  background: rgba(244, 114, 182, 0.34);
+}
+
+.detail-boxplot-canvas {
+  position: relative;
+  height: 280px;
+}
+
+.detail-boxplot-scroll {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.detail-boxplot-scroll::-webkit-scrollbar {
+  height: 8px;
+}
+
+.detail-boxplot-scroll::-webkit-scrollbar-track {
+  background: #edf1f6;
+}
+
+.detail-boxplot-scroll::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: #c7d0dd;
+}
+
+.detail-boxplot-canvas canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.detail-boxplot-empty {
+  margin-top: 16px;
+  padding: 14px;
+  color: #5f6b7c;
+  border: 1px dashed #cfd7e6;
+  border-radius: 6px;
+  background: #fbfcfe;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+}
+
 .maker-list {
   display: grid;
   gap: 14px;
   color: #111827;
-  font-size: 12px;
-}
-
-.maker-chart-stack {
-  display: grid;
-  width: 100%;
-  gap: 18px;
-}
-
-.maker-chart-panel {
-  min-width: 0;
-  max-height: 330px;
-  overflow-y: auto;
-  padding: 4px 4px 4px 0;
-}
-
-.unacceptable-count-chart-panel {
-  padding-top: 14px;
-  border-top: 1px solid #e6ebf2;
-}
-
-.unacceptable-count-chart-panel h5 {
-  margin: 0 0 8px;
-  color: #111827;
-  font-size: 13px;
-  font-weight: 800;
-}
-
-.maker-chart-panel canvas {
-  display: block;
-  width: 100% !important;
-  min-height: 230px;
-}
-
-.maker-chart-empty {
-  display: grid;
-  min-height: 120px;
-  place-items: center;
-  color: #25304a;
-  border: 1px dashed #cfd7e6;
-  border-radius: 6px;
-  background: #fbfcfe;
   font-size: 12px;
 }
 
@@ -1855,6 +2132,21 @@ button {
     grid-template-columns: 1fr;
   }
 
+  .chemistry-base-selection-row {
+    grid-template-columns: 1fr;
+  }
+
+  .chemistry-donut-stack {
+    padding: 0;
+  }
+
+  .chemistry-inline-institution-list {
+    padding-top: 16px;
+    padding-left: 0;
+    border-top: 3px solid #111827;
+    border-left: 0;
+  }
+
   .selection-row > div + div {
     border-left: 0;
     border-top: 1px solid var(--line);
@@ -1866,11 +2158,6 @@ button {
 
   .maker-list {
     gap: 10px;
-  }
-
-  .maker-chart-panel,
-  .chemistry-detail-donut-layout .maker-chart-panel {
-    max-height: 420px;
   }
 
   .maker-item {
@@ -1892,6 +2179,27 @@ button {
     justify-content: space-between;
   }
 
+  .detail-boxplot-head {
+    flex-direction: column;
+  }
+
+  .chemistry-specimen-detail-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .chemistry-detail-actions {
+    justify-content: flex-start;
+  }
+
+  .detail-boxplot-head span {
+    white-space: normal;
+  }
+
+  .detail-boxplot-legend span {
+    white-space: normal;
+  }
+
   .institution-pagination {
     flex-wrap: wrap;
   }
@@ -1901,4 +2209,3 @@ button {
     margin-left: 0;
   }
 }
-

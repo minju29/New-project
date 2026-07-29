@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArcElement,
   BarController,
@@ -520,8 +520,8 @@ const institutionColumns = [
   { key: "result", label: "결과" },
   { key: "standardSdi", label: "기준SDI" },
   { key: "detailSdi", label: "세부SDI" },
-  { key: "maker", label: "장비회사" },
-  { key: "instrument", label: "장비명" },
+  { key: "instrument", label: "기준분류" },
+  { key: "maker", label: "세분류" },
 ];
 
 const nonconformanceInstitutionColumns = [
@@ -531,8 +531,56 @@ const nonconformanceInstitutionColumns = [
   { key: "result", label: "결과" },
   { key: "standardSdi", label: "기준SDI" },
   { key: "detailSdi", label: "세부SDI" },
-  { key: "maker", label: "장비회사" },
-  { key: "instrument", label: "장비명" },
+  { key: "instrument", label: "기준분류" },
+  { key: "maker", label: "세분류" },
+];
+
+const participationInstitutionGridColumns = [
+  { field: "code", headerName: "기관코드", tooltip: "overflow", minWidth: 88 },
+  { field: "name", headerName: "기관명", tooltip: "overflow", minWidth: 128 },
+  { field: "testName", headerName: "검사명", tooltip: "overflow", minWidth: 118 },
+  { field: "specimenName", headerName: "검체", tooltip: "overflow", minWidth: 72 },
+  { field: "result", headerName: "결과", tooltip: "overflow", minWidth: 64 },
+  {
+    field: "standardSdi",
+    headerName: "기준분류SDI",
+    tooltip: "overflow",
+    minWidth: 92,
+  },
+  {
+    field: "detailSdi",
+    headerName: "세분류SDI",
+    tooltip: "overflow",
+    minWidth: 86,
+  },
+  { field: "judgment", headerName: "판정", tooltip: "overflow", minWidth: 64 },
+  {
+    field: "baseCategory",
+    headerName: "기준분류",
+    tooltip: "overflow",
+    minWidth: 136,
+  },
+  {
+    field: "detailCategory",
+    headerName: "세분류",
+    tooltip: "overflow",
+    minWidth: 126,
+  },
+];
+
+const chemistryTestListGridColumns = [
+  {
+    field: "code",
+    headerName: "검사코드",
+    tooltip: "overflow",
+    minWidth: 76,
+  },
+  {
+    field: "name",
+    headerName: "검사항목명",
+    tooltip: "overflow",
+    minWidth: 304,
+  },
 ];
 
 const urineNonconformanceInstitutionColumns = [
@@ -543,8 +591,8 @@ const urineNonconformanceInstitutionColumns = [
   { key: "answer", label: "정답" },
   { key: "standardSdi", label: "기준SDI" },
   { key: "detailSdi", label: "세부SDI" },
-  { key: "maker", label: "장비회사" },
-  { key: "instrument", label: "장비명" },
+  { key: "instrument", label: "기준분류" },
+  { key: "maker", label: "세분류" },
 ];
 
 const urineSedimentNonconformanceInstitutionColumns = [
@@ -563,8 +611,8 @@ const institutionColumnDescriptions = {
   answer: "해당 검체의 판정 기준 정답입니다.",
   standardSdi: "기준분류 기준 SDI 값입니다.",
   detailSdi: "세부분류 기준 SDI 값입니다.",
-  maker: "검사에 사용한 장비 회사입니다.",
-  instrument: "검사에 사용한 장비명입니다.",
+  maker: "검사에 사용한 세분류 데이터 입니다.",
+  instrument: "검사에 사용한 기준분류 데이터 입니다.",
 };
 
 // 행 순번(No)을 데이터에 주입 ? 그리드 showRowNumbers는 헤더 컬럼을 만들지 않아 값과 겹치므로 명시 컬럼 사용
@@ -899,20 +947,31 @@ function getStatisticsRows() {
   return statisticsRows;
 }
 
+function getCsvField(row, keys, fallbackIndex) {
+  for (const key of keys) {
+    if (Object.prototype.hasOwnProperty.call(row, key)) return row[key];
+  }
+
+  return Object.values(row)[fallbackIndex] ?? "";
+}
+
 function mapChemistryStatisticsRows(rows) {
   return rows.map((row, index) => ({
     id: `chemistry-stat-${index + 1}`,
-    testItem: row["하위검사명"] ?? "",
-    specimenName: row["검체명"] ?? "",
-    baseCategory: row["기준분류명"] ?? "",
-    detailCategory: row["세분류명"] ?? "",
-    n: row["기관수"] ?? "",
-    mean: row["평균_out"] ?? "",
-    median: row["중간값"] ?? "",
-    sd: row["표준편차_out"] ?? "",
-    cv: row["변동계수"] ?? "",
-    min: row["최소값"] ?? "",
-    max: row["최대값"] ?? "",
+    testCode: getCsvField(row, ["testCode", "검사코드"], 5),
+    testItem: getCsvField(row, ["testItem", "하위검사명"], 6),
+    specimenName: getCsvField(row, ["specimenName", "검체명"], 4),
+    baseCategory: getCsvField(row, ["baseCategory", "기준분류명"], 7),
+    detailCategory: getCsvField(row, ["detailCategory", "세분류명"], 8),
+    n: getCsvField(row, ["n", "기관수"], 9),
+    mean: getCsvField(row, ["mean", "평균_out"], 13),
+    median: getCsvField(row, ["median", "중간값"], 10),
+    sd: getCsvField(row, ["sd", "표준편차_out"], 14),
+    cv: getCsvField(row, ["cv", "변동계수"], 15),
+    min: getCsvField(row, ["min", "최소값"], 11),
+    max: getCsvField(row, ["max", "최대값"], 12),
+    q1: getCsvField(row, ["q1", "결과25"], 17),
+    q3: getCsvField(row, ["q3", "결과75"], 18),
   }));
 }
 
@@ -984,6 +1043,29 @@ function toChemistryInstitutionRow(row, detailName) {
   };
 }
 
+function toChemistryParticipationRow(row) {
+  return {
+    id: [
+      row.testcd,
+      row.gmatrnm,
+      row.instcd,
+      row.stndchassicd || row.stndchassinm,
+      row.detlchassicd || row.detlchassinm,
+      row.rslt,
+    ].join("-"),
+    code: row.instcd,
+    name: row.cmpynm,
+    testName: row.testhngnm || row.testcd,
+    specimenName: row.gmatrnm,
+    result: row.rslt,
+    standardSdi: row.sdi_l1,
+    detailSdi: row.sdi_l2,
+    judgment: getChemistryJudgment(row),
+    baseCategory: row.stndchassinm || row.stndchassicd || "미분류",
+    detailCategory: row.detlchassinm || row.detlchassicd || "미분류",
+  };
+}
+
 function createChemistryDashboardData(rows) {
   if (!Array.isArray(rows) || rows.length === 0) {
     return {
@@ -1001,6 +1083,7 @@ function createChemistryDashboardData(rows) {
     const specimenKey = row.gmatrnm;
     const testCode = row.testcd;
     const testName = row.testhngnm || testCode;
+    const baseName = row.stndchassinm || row.stndchassicd || "미분류";
     const detailName = row.detlchassinm || row.detlchassicd || "미분류";
 
     if (!institutionCode || !specimenKey || !testCode) continue;
@@ -1030,12 +1113,47 @@ function createChemistryDashboardData(rows) {
       test.specimenBuckets.set(specimenKey, {
         totalInstitutions: new Set(),
         unacceptableInstitutions: new Set(),
+        baseCategories: new Map(),
         details: new Map(),
       });
     }
 
     const specimenBucket = test.specimenBuckets.get(specimenKey);
     specimenBucket.totalInstitutions.add(institutionCode);
+
+    if (!specimenBucket.baseCategories.has(baseName)) {
+      specimenBucket.baseCategories.set(baseName, {
+        name: baseName,
+        values: [],
+        totalInstitutions: new Set(),
+        unacceptableInstitutions: new Set(),
+        details: new Map(),
+      });
+    }
+
+    const baseCategory = specimenBucket.baseCategories.get(baseName);
+    baseCategory.totalInstitutions.add(institutionCode);
+    const resultValue = parseChemistryNumericValue(row.rslt);
+
+    if (resultValue !== null) {
+      baseCategory.values.push(resultValue);
+    }
+
+    if (!baseCategory.details.has(detailName)) {
+      baseCategory.details.set(detailName, {
+        name: detailName,
+        values: [],
+        totalInstitutions: new Set(),
+        unacceptableInstitutions: new Set(),
+        unacceptableRowsByInstitution: new Map(),
+      });
+    }
+
+    const baseDetail = baseCategory.details.get(detailName);
+    baseDetail.totalInstitutions.add(institutionCode);
+    if (resultValue !== null) {
+      baseDetail.values.push(resultValue);
+    }
 
     if (!specimenBucket.details.has(detailName)) {
       specimenBucket.details.set(detailName, {
@@ -1050,12 +1168,22 @@ function createChemistryDashboardData(rows) {
     detail.totalInstitutions.add(institutionCode);
 
     if (String(getChemistryJudgment(row)).trim().toUpperCase() === "N") {
+      const institutionRow = toChemistryInstitutionRow(row, detailName);
+
       specimenBucket.unacceptableInstitutions.add(institutionCode);
+      baseCategory.unacceptableInstitutions.add(institutionCode);
+      baseDetail.unacceptableInstitutions.add(institutionCode);
+      if (!baseDetail.unacceptableRowsByInstitution.has(institutionCode)) {
+        baseDetail.unacceptableRowsByInstitution.set(
+          institutionCode,
+          institutionRow,
+        );
+      }
       detail.unacceptableInstitutions.add(institutionCode);
       if (!detail.unacceptableRowsByInstitution.has(institutionCode)) {
         detail.unacceptableRowsByInstitution.set(
           institutionCode,
-          toChemistryInstitutionRow(row, detailName),
+          institutionRow,
         );
       }
     }
@@ -1069,6 +1197,7 @@ function createChemistryDashboardData(rows) {
     const values = [];
     const unacceptableCounts = [];
     const participatingCounts = [];
+    const specimenBaseCategories = [];
     const specimenDetails = [];
 
     for (const specimen of specimens) {
@@ -1083,6 +1212,56 @@ function createChemistryDashboardData(rows) {
       );
       unacceptableCounts.push(unacceptableCount);
       participatingCounts.push(participatingCount);
+
+      const baseCategories = Array.from(bucket?.baseCategories.values() ?? [])
+        .map((baseCategory, index) => {
+          const baseTotal = getSetSize(baseCategory.totalInstitutions);
+          const details = Array.from(baseCategory.details.values())
+            .map((detail, detailIndex) => {
+              const detailTotal = getSetSize(detail.totalInstitutions);
+              const detailUnacceptable = getSetSize(
+                detail.unacceptableInstitutions,
+              );
+
+              return {
+                name: detail.name,
+                values: detail.values,
+                count: detailTotal,
+                total: detailTotal,
+                unacceptableCount: detailUnacceptable,
+                rate:
+                  detailTotal > 0
+                    ? (detailUnacceptable / detailTotal) * 100
+                    : 0,
+                color:
+                  chemistryDetailColors[
+                    detailIndex % chemistryDetailColors.length
+                  ],
+                rows: Array.from(detail.unacceptableRowsByInstitution.values()),
+              };
+            })
+            .filter((detail) => detail.total > 0)
+            .sort(
+              (a, b) =>
+                b.count - a.count || sortChemistryLabels(a.name, b.name),
+            );
+
+          return {
+            name: baseCategory.name,
+            values: baseCategory.values,
+            count: baseTotal,
+            total: baseTotal,
+            unacceptableCount: getSetSize(
+              baseCategory.unacceptableInstitutions,
+            ),
+            color: chemistryDetailColors[index % chemistryDetailColors.length],
+            details,
+          };
+        })
+        .filter((baseCategory) => baseCategory.total > 0)
+        .sort(
+          (a, b) => b.count - a.count || sortChemistryLabels(a.name, b.name),
+        );
 
       const details = Array.from(bucket?.details.values() ?? [])
         .map((detail, index) => {
@@ -1107,6 +1286,7 @@ function createChemistryDashboardData(rows) {
           (a, b) => b.count - a.count || sortChemistryLabels(a.name, b.name),
         );
 
+      specimenBaseCategories.push(baseCategories);
       specimenDetails.push(details);
     }
 
@@ -1116,6 +1296,7 @@ function createChemistryDashboardData(rows) {
       values,
       unacceptableCounts,
       participatingCounts,
+      specimenBaseCategories,
       specimenDetails,
     };
   });
@@ -1186,12 +1367,14 @@ function createChemistryNonconformanceData(rows) {
         specimenBuckets: new Map(),
         totalInstitutions: new Set(),
         unacceptableInstitutions: new Set(),
+        participatingRows: [],
         sdiPoints: [],
       });
     }
 
     const test = testMap.get(testCode);
     test.totalInstitutions.add(institutionCode);
+    test.participatingRows.push(toChemistryParticipationRow(row));
 
     if (!test.specimenBuckets.has(specimenKey)) {
       test.specimenBuckets.set(specimenKey, {
@@ -1251,6 +1434,7 @@ function createChemistryNonconformanceData(rows) {
       name: test.name,
       participatingCount: getSetSize(test.totalInstitutions),
       totalUnacceptableCount: getSetSize(test.unacceptableInstitutions),
+      participatingRows: test.participatingRows,
       specimenSummaries: specimens.map((specimen) => {
         const bucket = test.specimenBuckets.get(specimen.key);
         const participatingCount = getSetSize(bucket?.totalInstitutions);
@@ -1301,6 +1485,196 @@ function getMakerData(selection, data = unacceptableRateData) {
         ? maker.count + Math.round(selectedValue)
         : maker.count,
   }));
+}
+
+function getBaseCategoryData(selection, data = unacceptableRateData) {
+  const selectedTest = data.tests[selection.testIndex];
+  const baseCategoryRows =
+    selectedTest?.specimenBaseCategories?.[selection.specimenIndex];
+
+  return Array.isArray(baseCategoryRows) ? baseCategoryRows : [];
+}
+
+function groupSmallDetailMakers(makers, thresholdPercent = 1) {
+  const total = makers.reduce((sum, maker) => sum + maker.count, 0);
+
+  if (total <= 0) return makers;
+
+  const visibleMakers = [];
+  const otherMakers = [];
+
+  makers.forEach((maker) => {
+    const share = (maker.count / total) * 100;
+
+    if (maker.name === "기타" || share <= thresholdPercent) {
+      otherMakers.push(maker);
+    } else {
+      visibleMakers.push(maker);
+    }
+  });
+
+  if (otherMakers.length === 0) return makers;
+
+  const otherCount = otherMakers.reduce((sum, maker) => sum + maker.count, 0);
+  const otherUnacceptableCount = otherMakers.reduce(
+    (sum, maker) => sum + (maker.unacceptableCount ?? maker.count),
+    0,
+  );
+  const otherRows = otherMakers.flatMap((maker) => maker.rows ?? []);
+
+  return [
+    ...visibleMakers,
+    {
+      name: "기타",
+      count: otherCount,
+      total: otherCount,
+      unacceptableCount: otherUnacceptableCount,
+      rate: otherCount > 0 ? (otherUnacceptableCount / otherCount) * 100 : 0,
+      color: "#4b5563",
+      rows: otherRows.length > 0 ? otherRows : undefined,
+    },
+  ];
+}
+
+function percentile(sortedValues, percentileValue) {
+  if (sortedValues.length === 0) return 0;
+  if (sortedValues.length === 1) return sortedValues[0];
+
+  const index = (sortedValues.length - 1) * percentileValue;
+  const lowerIndex = Math.floor(index);
+  const upperIndex = Math.ceil(index);
+  const weight = index - lowerIndex;
+
+  return (
+    sortedValues[lowerIndex] * (1 - weight) + sortedValues[upperIndex] * weight
+  );
+}
+
+function getBoxplotStats(values) {
+  const sortedValues = values
+    .filter((value) => Number.isFinite(value))
+    .sort((a, b) => a - b);
+
+  if (sortedValues.length === 0) {
+    return {
+      min: 0,
+      q1: 0,
+      median: 0,
+      q3: 0,
+      max: 0,
+      whiskerMin: 0,
+      whiskerMax: 0,
+      count: 0,
+    };
+  }
+
+  const q1 = percentile(sortedValues, 0.25);
+  const median = percentile(sortedValues, 0.5);
+  const q3 = percentile(sortedValues, 0.75);
+  const iqr = q3 - q1;
+  const lowerFence = q1 - iqr * 1.5;
+  const upperFence = q3 + iqr * 1.5;
+  const inFenceValues = sortedValues.filter(
+    (value) => value >= lowerFence && value <= upperFence,
+  );
+
+  return {
+    min: sortedValues[0],
+    q1,
+    median,
+    q3,
+    max: sortedValues[sortedValues.length - 1],
+    whiskerMin: inFenceValues[0] ?? sortedValues[0],
+    whiskerMax: inFenceValues.at(-1) ?? sortedValues.at(-1),
+    count: sortedValues.length,
+  };
+}
+
+function getBoxplotOutliers(values = [], stats) {
+  if (!stats || stats.count === 0) return [];
+
+  return values
+    .filter(
+      (value) =>
+        Number.isFinite(value) &&
+        (value < stats.whiskerMin || value > stats.whiskerMax),
+    )
+    .map((value) => ({ value }))
+    .sort((a, b) => a.value - b.value);
+}
+
+function buildDetailUnacceptableBoxplotData(
+  selection,
+  selectedBaseCategoryName,
+  data = unacceptableRateData,
+) {
+  if (!selectedBaseCategoryName) return [];
+
+  const selectedTest = data.tests[selection.testIndex];
+  const baseCategory = selectedTest?.specimenBaseCategories?.[
+    selection.specimenIndex
+  ]?.find((category) => category.name === selectedBaseCategoryName);
+
+  if (!selectedTest || !baseCategory) return [];
+
+  const getUnacceptableValues = (rows = []) =>
+    rows
+      .map((row) => parseChemistryNumericValue(row.result))
+      .filter((value) => value !== null);
+
+  const buildItem = ({
+    label,
+    color,
+    values = [],
+    unacceptableValues = [],
+    unacceptableCount,
+    total,
+  }) => {
+    const stats = getBoxplotStats(values);
+    return {
+      label,
+      color,
+      unacceptableValues,
+      unacceptableCount,
+      total,
+      unacceptableRate: total > 0 ? (unacceptableCount / total) * 100 : 0,
+      stats,
+      outliers: getBoxplotOutliers(values, stats),
+    };
+  };
+
+  const details = baseCategory.details
+    .filter((detail) => (detail.total ?? detail.count ?? 0) > 0)
+    .sort(
+      (a, b) =>
+        (b.total ?? b.count ?? 0) - (a.total ?? a.count ?? 0) ||
+        sortChemistryLabels(a.name, b.name),
+    )
+    .slice(0, 5);
+  const allUnacceptableValues = getUnacceptableValues(
+    baseCategory.details.flatMap((detail) => detail.rows ?? []),
+  );
+
+  return [
+    buildItem({
+      label: "전체",
+      color: "#111827",
+      values: baseCategory.values ?? [],
+      unacceptableValues: allUnacceptableValues,
+      unacceptableCount: baseCategory.unacceptableCount ?? 0,
+      total: baseCategory.total ?? baseCategory.count ?? 0,
+    }),
+    ...details.map((detail) =>
+      buildItem({
+        label: detail.name,
+        color: detail.color,
+        values: detail.values ?? [],
+        unacceptableValues: getUnacceptableValues(detail.rows),
+        unacceptableCount: detail.unacceptableCount ?? 0,
+        total: detail.total ?? detail.count ?? 0,
+      }),
+    ),
+  ];
 }
 
 function getGeneratedInstrument(makerName) {
@@ -1551,13 +1925,75 @@ function renderUrineDoughnutTooltip(context, makers) {
     : "translate(12px, -50%)";
 }
 
-function UnacceptableRateChart({ data = unacceptableRateData, onSelect }) {
+function getClickedXAxisLabelIndex(chart, event) {
+  const xScale = chart?.scales?.x;
+
+  if (!xScale || !Number.isFinite(event?.x) || !Number.isFinite(event?.y)) {
+    return null;
+  }
+
+  const chartAreaBottom = chart.chartArea?.bottom ?? xScale.top;
+  const canvasHeight =
+    chart.height ?? chart.canvas?.clientHeight ?? xScale.bottom;
+  const labelBandTop = chartAreaBottom - 8;
+  const labelBandBottom = Math.max(xScale.bottom, canvasHeight) + 8;
+  const isLabelBand =
+    event.y >= labelBandTop &&
+    event.y <= labelBandBottom &&
+    event.x >= xScale.left - 12 &&
+    event.x <= xScale.right + 12;
+
+  if (!isLabelBand) return null;
+
+  const index = Math.round(xScale.getValueForPixel(event.x));
+  const labelCount = xScale.ticks?.length ?? 0;
+
+  if (index < 0 || index >= labelCount) return null;
+
+  const center = xScale.getPixelForValue(index);
+  const nextCenter =
+    index < labelCount - 1
+      ? xScale.getPixelForValue(index + 1)
+      : xScale.getPixelForValue(index - 1);
+  const halfStep = Number.isFinite(nextCenter)
+    ? Math.abs(nextCenter - center) / 2
+    : 24;
+
+  return Math.abs(event.x - center) <= halfStep ? index : null;
+}
+
+function getNativeChartPoint(chart, event) {
+  const rect = chart?.canvas?.getBoundingClientRect();
+
+  if (!rect) return null;
+
+  return {
+    x: event.clientX - rect.left,
+    y: event.clientY - rect.top,
+  };
+}
+
+function UnacceptableRateChart({
+  data = unacceptableRateData,
+  onSelect,
+  selectedTestIndex,
+}) {
   const canvasRef = useRef(null);
   const chartRef = useRef(null);
   const scrollRef = useRef(null);
+  const selectedTestIndexRef = useRef(selectedTestIndex);
   const [zoomLevel, setZoomLevel] = useState(1);
+  const [containerWidth, setContainerWidth] = useState(0);
   const baseChartWidth = Math.max(860, data.tests.length * 36);
-  const chartWidth = Math.round(baseChartWidth * zoomLevel);
+  const baseChartHeight = 374;
+  const chartWidth = Math.max(
+    containerWidth,
+    Math.round(baseChartWidth * zoomLevel),
+  );
+  const chartHeight = Math.round(baseChartHeight * zoomLevel);
+  const chartViewportHeight = chartHeight + 31;
+  const zoomPercent = Math.round(zoomLevel * 100);
+  const yTickStep = zoomLevel >= 1.75 ? 0.25 : zoomLevel >= 1.25 ? 0.5 : 1;
   const maxRate = Math.max(
     8,
     ...data.tests.flatMap((test) =>
@@ -1570,6 +2006,59 @@ function UnacceptableRateChart({ data = unacceptableRateData, onSelect }) {
   const changeZoom = (nextZoom) => {
     setZoomLevel(clampZoom(nextZoom));
   };
+
+  const selectTestIndex = useCallback(
+    (testIndex) => {
+      onSelect({
+        testIndex,
+        specimenIndex: 0,
+      });
+    },
+    [onSelect],
+  );
+
+  const handleChartLabelClick = (event) => {
+    const chart = chartRef.current;
+    const point = getNativeChartPoint(chart, event);
+    const index = getClickedXAxisLabelIndex(chart, point);
+
+    if (index !== null) selectTestIndex(index);
+  };
+
+  const handleChartLabelHover = (event) => {
+    const chart = chartRef.current;
+    const point = getNativeChartPoint(chart, event);
+    const index = getClickedXAxisLabelIndex(chart, point);
+
+    if (chart?.canvas) {
+      chart.canvas.style.cursor = index === null ? "default" : "pointer";
+    }
+  };
+
+  useEffect(() => {
+    selectedTestIndexRef.current = selectedTestIndex;
+    chartRef.current?.update("none");
+  }, [selectedTestIndex]);
+
+  useEffect(() => {
+    const scrollNode = scrollRef.current;
+
+    if (!scrollNode) return undefined;
+
+    setContainerWidth(Math.floor(scrollNode.clientWidth));
+
+    if (typeof ResizeObserver === "undefined") return undefined;
+
+    const resizeObserver = new ResizeObserver(([entry]) => {
+      setContainerWidth(Math.floor(entry.contentRect.width));
+    });
+
+    resizeObserver.observe(scrollNode);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, []);
 
   useEffect(() => {
     const chart = new Chart(canvasRef.current, {
@@ -1590,15 +2079,6 @@ function UnacceptableRateChart({ data = unacceptableRateData, onSelect }) {
         responsive: true,
         maintainAspectRatio: false,
         animation: false,
-        onClick(_event, elements) {
-          if (!elements.length) return;
-
-          const [{ datasetIndex, index }] = elements;
-          onSelect({
-            testIndex: index,
-            specimenIndex: datasetIndex,
-          });
-        },
         interaction: {
           intersect: true,
           mode: "nearest",
@@ -1638,9 +2118,17 @@ function UnacceptableRateChart({ data = unacceptableRateData, onSelect }) {
               display: false,
             },
             ticks: {
-              color: "#1f2d4d",
-              font: {
-                size: 10,
+              color(context) {
+                return context.index === selectedTestIndexRef.current
+                  ? "#0869f4"
+                  : "#1f2d4d";
+              },
+              font(context) {
+                return {
+                  size: 10,
+                  weight:
+                    context.index === selectedTestIndexRef.current ? 800 : 600,
+                };
               },
               maxRotation: 50,
               minRotation: 50,
@@ -1660,7 +2148,7 @@ function UnacceptableRateChart({ data = unacceptableRateData, onSelect }) {
               font: {
                 size: 11,
               },
-              stepSize: 1,
+              stepSize: yTickStep,
               callback(value) {
                 return formatPercent(value);
               },
@@ -1675,18 +2163,42 @@ function UnacceptableRateChart({ data = unacceptableRateData, onSelect }) {
       chart.destroy();
       chartRef.current = null;
     };
-  }, [data, onSelect, maxRate]);
+  }, [data, maxRate]);
 
   useEffect(() => {
     chartRef.current?.resize();
-  }, [chartWidth]);
+  }, [chartHeight, chartWidth]);
+
+  useEffect(() => {
+    const chart = chartRef.current;
+    const yScaleOptions = chart?.options?.scales?.y;
+
+    if (!chart || !yScaleOptions?.ticks) return;
+
+    yScaleOptions.ticks.stepSize = yTickStep;
+    chart.update("none");
+  }, [yTickStep]);
 
   useEffect(() => {
     const scrollNode = scrollRef.current;
     if (!scrollNode) return undefined;
 
     const handleWheel = (event) => {
-      if (!event.ctrlKey) return;
+      if (!event.ctrlKey) {
+        const isVerticalScroll =
+          Math.abs(event.deltaY) > Math.abs(event.deltaX) && !event.shiftKey;
+
+        if (isVerticalScroll) {
+          event.preventDefault();
+          window.scrollBy({
+            top: event.deltaY,
+            left: 0,
+            behavior: "auto",
+          });
+        }
+
+        return;
+      }
 
       event.preventDefault();
       event.stopPropagation();
@@ -1726,7 +2238,7 @@ function UnacceptableRateChart({ data = unacceptableRateData, onSelect }) {
             min="75"
             max="200"
             step="25"
-            value={Math.round(zoomLevel * 100)}
+            value={zoomPercent}
             aria-label="그래프 확대율"
             onChange={(event) => changeZoom(Number(event.target.value) / 100)}
           />
@@ -1742,16 +2254,27 @@ function UnacceptableRateChart({ data = unacceptableRateData, onSelect }) {
             onClick={() => changeZoom(1)}
             aria-label="그래프 확대 초기화"
           >
-            100%
+            {zoomPercent}%
           </button>
         </div>
       </div>
       <div
         ref={scrollRef}
         className="chart-scroll"
+        style={{ height: `${chartViewportHeight}px` }}
         aria-label="검사항목별 Unacceptable Rate 그래프 스크롤 영역"
       >
-        <div className="chart-canvas" style={{ width: `${chartWidth}px` }}>
+        <div
+          className="chart-canvas"
+          style={{ width: `${chartWidth}px`, height: `${chartHeight}px` }}
+          onClick={handleChartLabelClick}
+          onMouseMove={handleChartLabelHover}
+          onMouseLeave={() => {
+            if (chartRef.current?.canvas) {
+              chartRef.current.canvas.style.cursor = "default";
+            }
+          }}
+        >
           <canvas
             ref={canvasRef}
             aria-label="검사항목별 Unacceptable Rate 막대그래프"
@@ -1762,7 +2285,12 @@ function UnacceptableRateChart({ data = unacceptableRateData, onSelect }) {
   );
 }
 
-function MakerDoughnutChart({ makers }) {
+function MakerDoughnutChart({
+  makers,
+  ariaLabel,
+  onSegmentClick,
+  selectedName,
+}) {
   const canvasRef = useRef(null);
 
   useEffect(() => {
@@ -1774,8 +2302,12 @@ function MakerDoughnutChart({ makers }) {
           {
             data: makers.map((maker) => maker.count),
             backgroundColor: makers.map((maker) => maker.color),
-            borderColor: "#fff",
-            borderWidth: 1,
+            borderColor: makers.map((maker) =>
+              maker.name === selectedName ? "#111827" : "#fff",
+            ),
+            borderWidth: makers.map((maker) =>
+              maker.name === selectedName ? 3 : 1,
+            ),
             hoverOffset: 3,
           },
         ],
@@ -1786,6 +2318,18 @@ function MakerDoughnutChart({ makers }) {
         maintainAspectRatio: false,
         animation: false,
         cutout: "48%",
+        onClick(_event, elements) {
+          if (!onSegmentClick || elements.length === 0) return;
+
+          const selectedMaker = makers[elements[0].index];
+          if (selectedMaker) onSegmentClick(selectedMaker);
+        },
+        onHover(event, elements) {
+          if (event.native?.target) {
+            event.native.target.style.cursor =
+              onSegmentClick && elements.length > 0 ? "pointer" : "default";
+          }
+        },
         plugins: {
           doughnutPercentLabels: {
             minPercent: 4,
@@ -1805,73 +2349,158 @@ function MakerDoughnutChart({ makers }) {
       canvasRef.current?.parentNode?.querySelector(".donut-tooltip")?.remove();
       chart.destroy();
     };
-  }, [makers]);
+  }, [makers, onSegmentClick, selectedName]);
 
   return (
     <canvas
       ref={canvasRef}
-      aria-label="세분류별 기관 비율 및 Unacceptable 기관 수 도넛 차트"
+      aria-label={
+        ariaLabel ?? "세분류별 기관 비율 및 Unacceptable 기관 수 도넛 차트"
+      }
     />
   );
 }
 
-function DetailBreakdownChart({ makers }) {
+function hexToRgba(hex, alpha) {
+  const normalizedHex = String(hex).replace("#", "");
+
+  if (normalizedHex.length !== 6) return `rgba(8, 105, 244, ${alpha})`;
+
+  const red = parseInt(normalizedHex.slice(0, 2), 16);
+  const green = parseInt(normalizedHex.slice(2, 4), 16);
+  const blue = parseInt(normalizedHex.slice(4, 6), 16);
+
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+}
+
+function formatBoxplotValue(value) {
+  const numericValue = Number(value);
+
+  if (!Number.isFinite(numericValue)) return "-";
+  return Math.abs(numericValue) >= 100
+    ? numericValue.toFixed(1)
+    : numericValue.toFixed(2);
+}
+
+function DetailUnacceptableBoxplot({ boxplotData, selectedBaseCategoryName }) {
   const canvasRef = useRef(null);
-  const unacceptableCanvasRef = useRef(null);
-  const unacceptableMakers = makers.filter(
-    (maker) => (maker.unacceptableCount ?? maker.count) > 0,
+  const stats = useMemo(
+    () => boxplotData.filter((item) => item.stats.count > 0),
+    [boxplotData],
   );
-  const chartHeight = Math.max(340, makers.length * 38);
-  const unacceptableChartHeight = Math.max(300, unacceptableMakers.length * 34);
+  const chartWidth = Math.max(560, stats.length * 74);
+  const allValues = stats.flatMap((item) => [
+    item.stats.whiskerMin,
+    item.stats.q1,
+    item.stats.median,
+    item.stats.q3,
+    item.stats.whiskerMax,
+  ]);
+  const minValue = Math.min(...allValues);
+  const maxValue = Math.max(...allValues);
+  const valueRange = maxValue - minValue;
+  const yPadding =
+    valueRange === 0
+      ? Math.max(Math.abs(maxValue) * 0.05, 1)
+      : valueRange * 0.08;
+  const yMin = minValue - yPadding;
+  const yMax = maxValue + yPadding;
 
   useEffect(() => {
-    if (!canvasRef.current || makers.length === 0) {
-      return undefined;
-    }
+    if (!canvasRef.current || stats.length === 0) return undefined;
 
-    const unacceptableCounts = makers.map(
-      (maker) => maker.unacceptableCount ?? maker.count,
-    );
-    const unacceptableOnlyCounts = unacceptableMakers.map(
-      (maker) => maker.unacceptableCount ?? maker.count,
-    );
-    const acceptableCounts = makers.map((maker, index) =>
-      Math.max(0, maker.count - unacceptableCounts[index]),
-    );
-    const maxCount = Math.max(...makers.map((maker) => maker.count), 1);
-    const maxUnacceptableCount = Math.max(...unacceptableOnlyCounts, 1);
+    const boxplotPlugin = {
+      id: "detailUnacceptableBoxplot",
+      afterDatasetsDraw(chart) {
+        const { ctx, chartArea, scales } = chart;
+        const xScale = scales.x;
+        const yScale = scales.y;
+        const categoryWidth =
+          stats.length > 1
+            ? Math.abs(xScale.getPixelForValue(1) - xScale.getPixelForValue(0))
+            : chartArea.width / 2;
+        const boxWidth = Math.min(44, categoryWidth * 0.42);
+
+        ctx.save();
+        ctx.lineWidth = 1.5;
+
+        stats.forEach((item, index) => {
+          const x = xScale.getPixelForValue(index);
+          const { q1, median, q3, whiskerMin, whiskerMax } = item.stats;
+          const minY = yScale.getPixelForValue(whiskerMin);
+          const q1Y = yScale.getPixelForValue(q1);
+          const medianY = yScale.getPixelForValue(median);
+          const q3Y = yScale.getPixelForValue(q3);
+          const maxY = yScale.getPixelForValue(whiskerMax);
+          const color = index === 0 ? "#147782" : "#ff704d";
+          const fillColor =
+            index === 0
+              ? "rgba(20, 119, 130, 0.16)"
+              : "rgba(255, 112, 77, 0.14)";
+          const left = x - boxWidth / 2;
+          const top = Math.min(q1Y, q3Y);
+          const height = Math.max(2, Math.abs(q3Y - q1Y));
+
+          ctx.strokeStyle = "#4b5563";
+          ctx.fillStyle = fillColor;
+
+          ctx.beginPath();
+          ctx.moveTo(x, maxY);
+          ctx.lineTo(x, minY);
+          ctx.moveTo(x - boxWidth * 0.32, maxY);
+          ctx.lineTo(x + boxWidth * 0.32, maxY);
+          ctx.moveTo(x - boxWidth * 0.32, minY);
+          ctx.lineTo(x + boxWidth * 0.32, minY);
+          ctx.stroke();
+
+          ctx.strokeStyle = color;
+          ctx.fillRect(left, top, boxWidth, height);
+          ctx.strokeRect(left, top, boxWidth, height);
+
+          ctx.strokeStyle = "#111827";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(left, medianY);
+          ctx.lineTo(left + boxWidth, medianY);
+          ctx.stroke();
+          ctx.lineWidth = 1.5;
+
+          (item.unacceptableValues ?? []).forEach((value, valueIndex) => {
+            const pointY = yScale.getPixelForValue(value);
+            if (pointY < chartArea.top || pointY > chartArea.bottom) return;
+
+            const jitter = ((valueIndex % 7) - 3) * 3.2;
+            ctx.fillStyle = "rgba(244, 114, 182, 0.34)";
+            ctx.strokeStyle = "rgba(244, 114, 182, 0.72)";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(x + jitter, pointY, 3, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+          });
+        });
+
+        ctx.restore();
+      },
+    };
 
     const chart = new Chart(canvasRef.current, {
       type: "bar",
       data: {
-        labels: makers.map((maker) => maker.name),
+        labels: stats.map((item) => item.label),
         datasets: [
           {
-            label: "Unacceptable 기관",
-            data: unacceptableCounts,
-            backgroundColor: "rgba(244, 63, 94, 0.82)",
-            borderColor: "#e11d48",
-            borderWidth: 1,
-            borderRadius: 3,
-            stack: "institution",
-            barPercentage: 0.72,
-            categoryPercentage: 0.72,
-          },
-          {
-            label: "Acceptable 기관",
-            data: acceptableCounts,
-            backgroundColor: "rgba(37, 48, 74, 0.14)",
-            borderColor: "#cfd7e6",
-            borderWidth: 1,
-            borderRadius: 3,
-            stack: "institution",
-            barPercentage: 0.72,
-            categoryPercentage: 0.72,
+            label: "Median",
+            data: stats.map((item) => item.stats.median),
+            backgroundColor: "rgba(0, 0, 0, 0)",
+            borderColor: "rgba(0, 0, 0, 0)",
+            hoverBackgroundColor: "rgba(0, 0, 0, 0)",
+            borderWidth: 0,
           },
         ],
       },
+      plugins: [boxplotPlugin],
       options: {
-        indexAxis: "y",
         responsive: true,
         maintainAspectRatio: false,
         animation: false,
@@ -1881,214 +2510,132 @@ function DetailBreakdownChart({ makers }) {
         },
         plugins: {
           legend: {
-            position: "top",
-            align: "start",
-            labels: {
-              boxWidth: 10,
-              boxHeight: 10,
-              color: "#25304a",
-              font: {
-                size: 11,
-                weight: 700,
-              },
-            },
-          },
-          tooltip: {
-            backgroundColor: "#fff",
-            bodyColor: "#25304a",
-            borderColor: "#d9e1ed",
-            borderWidth: 1,
-            displayColors: true,
-            padding: 10,
-            titleColor: "#111827",
-            callbacks: {
-              afterBody(items) {
-                const maker = makers[items[0].dataIndex];
-                const unacceptableCount =
-                  unacceptableCounts[items[0].dataIndex] ?? 0;
-                const unacceptableRate = Number.isFinite(maker.rate)
-                  ? maker.rate
-                  : maker.total > 0
-                    ? (unacceptableCount / maker.total) * 100
-                    : 0;
-
-                return [
-                  `전체: ${maker.count.toLocaleString()} 기관`,
-                  `Unacceptable: ${unacceptableCount.toLocaleString()} 기관 (${formatPercent(unacceptableRate)})`,
-                ];
-              },
-              label(item) {
-                return `${item.dataset.label}: ${Number(item.parsed.x).toLocaleString()} 기관`;
-              },
-            },
-          },
-        },
-        scales: {
-          x: {
-            stacked: true,
-            beginAtZero: true,
-            suggestedMax: Math.ceil(maxCount * 1.12),
-            border: {
-              color: "#cfd7e6",
-            },
-            grid: {
-              color: "#e6ebf2",
-            },
-            ticks: {
-              color: "#25304a",
-              precision: 0,
-              font: {
-                size: 11,
-              },
-            },
-          },
-          y: {
-            stacked: true,
-            grid: {
-              display: false,
-            },
-            ticks: {
-              color: "#111827",
-              font: {
-                size: 11,
-                weight: 700,
-              },
-              callback(value) {
-                const label = this.getLabelForValue(value);
-                return label.length > 16 ? `${label.slice(0, 16)}...` : label;
-              },
-            },
-          },
-        },
-      },
-    });
-
-    let unacceptableChart = null;
-    if (unacceptableMakers.length > 0 && unacceptableCanvasRef.current) {
-      unacceptableChart = new Chart(unacceptableCanvasRef.current, {
-      type: "bar",
-      data: {
-        labels: unacceptableMakers.map((maker) => maker.name),
-        datasets: [
-          {
-            label: "Unacceptable 기관수",
-            data: unacceptableOnlyCounts,
-            backgroundColor: "rgba(244, 63, 94, 0.82)",
-            borderColor: "#e11d48",
-            borderWidth: 1,
-            borderRadius: 3,
-            barPercentage: 0.7,
-            categoryPercentage: 0.72,
-          },
-        ],
-      },
-      options: {
-        indexAxis: "y",
-        responsive: true,
-        maintainAspectRatio: false,
-        animation: false,
-        plugins: {
-          legend: {
             display: false,
           },
           tooltip: {
-            backgroundColor: "#fff",
-            bodyColor: "#25304a",
-            borderColor: "#d9e1ed",
-            borderWidth: 1,
-            displayColors: false,
-            padding: 10,
-            titleColor: "#111827",
             callbacks: {
+              title(items) {
+                return stats[items[0].dataIndex]?.label ?? "";
+              },
               label(item) {
-                const maker = unacceptableMakers[item.dataIndex];
-                const count = unacceptableOnlyCounts[item.dataIndex] ?? 0;
-                const rate = Number.isFinite(maker.rate)
-                  ? maker.rate
-                  : maker.total > 0
-                    ? (count / maker.total) * 100
-                    : 0;
+                const target = stats[item.dataIndex];
+                if (!target) return "";
 
-                return `Unacceptable: ${count.toLocaleString()} 기관 (${formatPercent(rate)})`;
+                return [
+                  "Median " + formatBoxplotValue(target.stats.median),
+                  "IQR(25~75%) " +
+                    formatBoxplotValue(target.stats.q1) +
+                    " ~ " +
+                    formatBoxplotValue(target.stats.q3),
+                  "Whisker " +
+                    formatBoxplotValue(target.stats.whiskerMin) +
+                    " ~ " +
+                    formatBoxplotValue(target.stats.whiskerMax),
+                  "Unacceptable rate " +
+                    formatPercent(target.unacceptableRate ?? 0),
+                  "Unacceptable 결과값 " +
+                    (target.unacceptableValues?.length ?? 0).toLocaleString() +
+                    "개",
+                  "기관수 " + target.stats.count.toLocaleString() + "개",
+                ];
               },
             },
           },
         },
         scales: {
           x: {
-            beginAtZero: true,
-            suggestedMax: Math.ceil(maxUnacceptableCount * 1.18),
-            border: {
-              color: "#cfd7e6",
-            },
-            grid: {
-              color: "#e6ebf2",
-            },
-            ticks: {
-              color: "#25304a",
-              precision: 0,
-              font: {
-                size: 11,
-              },
-            },
-          },
-          y: {
             grid: {
               display: false,
             },
             ticks: {
-              color: "#111827",
+              color: "#1f2d4d",
               font: {
                 size: 11,
-                weight: 700,
+                weight: "700",
+              },
+              maxRotation: 0,
+              autoSkip: false,
+              callback(value) {
+                const label = String(stats[value]?.label ?? value);
+                return label.length > 12 ? `${label.slice(0, 11)}...` : label;
+              },
+            },
+          },
+          y: {
+            min: yMin,
+            max: yMax,
+            title: {
+              display: true,
+              text: "결과값",
+              color: "#25304a",
+              font: {
+                size: 12,
+                weight: "700",
+              },
+            },
+            border: {
+              color: "#cfd7e6",
+            },
+            grid: {
+              color(context) {
+                return context.tick.value === 0 ? "#8792a5" : "#dce3ed";
+              },
+            },
+            ticks: {
+              color: "#1f2d4d",
+              font: {
+                size: 11,
               },
               callback(value) {
-                const label = this.getLabelForValue(value);
-                return label.length > 16 ? `${label.slice(0, 16)}...` : label;
+                return formatBoxplotValue(value);
               },
             },
           },
         },
       },
     });
-    }
 
     return () => {
       chart.destroy();
-      unacceptableChart?.destroy();
     };
-  }, [makers]);
+  }, [stats, yMin, yMax]);
 
-  if (makers.length === 0) {
+  if (stats.length === 0) {
     return (
-      <div className="maker-chart-empty">
-        <b>표시할 세분류 데이터가 없습니다.</b>
+      <div className="detail-boxplot-empty">
+        선택한 기준분류와 검체에 맞는 결과값이 없습니다.
       </div>
     );
   }
 
   return (
-    <div className="maker-chart-stack">
-      <div className="maker-chart-panel">
-        <canvas
-          ref={canvasRef}
-          style={{ height: `${chartHeight}px` }}
-          aria-label="세분류별 전체 기관 수 안의 Unacceptable 기관 수 누적 막대그래프"
-        />
+    <div className="detail-boxplot">
+      <div className="detail-boxplot-head">
+        <div>
+          <h5>전체 및 세분류별 Boxplot</h5>
+          <p>
+            {selectedBaseCategoryName} 기준분류 안의 전체 결과와 기관수 Top5
+            세분류 결과값 분포입니다.
+          </p>
+        </div>
+        <div className="detail-boxplot-legend" aria-label="Boxplot 범례">
+          <span>
+            <i className="boxplot-legend-box" aria-hidden="true" />
+            박스=전체 결과 분포(IQR 25~75%, 수염 1.5 IQR)
+          </span>
+          <span>
+            <i className="boxplot-legend-point" aria-hidden="true" />
+            핑크 점=Unacceptable 개별 결과값
+          </span>
+        </div>
       </div>
-      <div className="maker-chart-panel unacceptable-count-chart-panel">
-        <h5>세분류별 Unacceptable 기관수</h5>
-        {unacceptableMakers.length > 0 ? (
+      <div className="detail-boxplot-scroll">
+        <div className="detail-boxplot-canvas" style={{ width: chartWidth }}>
           <canvas
-            ref={unacceptableCanvasRef}
-            style={{ height: `${unacceptableChartHeight}px` }}
-            aria-label="detlchassinm 별 Unacceptable 기관수 막대그래프"
+            ref={canvasRef}
+            aria-label="전체 및 세분류별 결과값 Boxplot"
           />
-        ) : (
-          <div className="maker-chart-empty compact">
-            <b>Unacceptable 기관수가 있는 세분류가 없습니다.</b>
-          </div>
-        )}
+        </div>
       </div>
     </div>
   );
@@ -2215,12 +2762,6 @@ function TrendLineChart({ selection, data = unacceptableRateData }) {
 
   return (
     <div className="trend-chart">
-      <div className="trend-selection">
-        <span>선택 검사</span>
-        <strong>{selectedTest.name}</strong>
-        <span>선택 검체</span>
-        <strong>{selectedSpecimen.key}</strong>
-      </div>
       <div className="trend-canvas">
         <canvas
           ref={canvasRef}
@@ -2231,91 +2772,204 @@ function TrendLineChart({ selection, data = unacceptableRateData }) {
   );
 }
 
-function SelectedTestDetail({ selection, data = unacceptableRateData }) {
-  const [showInstitutionGrid, setShowInstitutionGrid] = useState(false);
+function SelectedSpecimenTestDetail({
+  selection,
+  data = unacceptableRateData,
+  statisticsRows = [],
+  collapseVersion = 0,
+}) {
+  const [selectedBaseCategoryName, setSelectedBaseCategoryName] =
+    useState(null);
   const selectedTest = data.tests[selection.testIndex] ?? data.tests[0];
   const selectedSpecimen =
     data.specimens[selection.specimenIndex] ?? data.specimens[0];
-  const makers = getMakerData(selection, data);
-  const total = makers.reduce((sum, maker) => sum + maker.count, 0);
-  const selectedInstitutionRows = getInstitutionRowsForMakers(makers);
+  const baseCategories = getBaseCategoryData(selection, data);
+  const selectedBaseCategory =
+    baseCategories.find(
+      (baseCategory) => baseCategory.name === selectedBaseCategoryName,
+    ) ?? null;
+  const rawMakers = selectedBaseCategory?.details ?? [];
+  const makers = useMemo(() => groupSmallDetailMakers(rawMakers), [rawMakers]);
+  const baseTotal = baseCategories.reduce(
+    (sum, baseCategory) => sum + baseCategory.count,
+    0,
+  );
+  const total = selectedBaseCategory?.count ?? 0;
+  const selectedInstitutionRows = selectedBaseCategory
+    ? getInstitutionRowsForMakers(makers)
+    : [];
+  const detailBoxplotData = useMemo(
+    () =>
+      buildDetailUnacceptableBoxplotData(
+        selection,
+        selectedBaseCategoryName,
+        data,
+        statisticsRows,
+      ),
+    [
+      data,
+      selectedBaseCategoryName,
+      selection.specimenIndex,
+      selection.testIndex,
+      statisticsRows,
+    ],
+  );
 
   useEffect(() => {
-    setShowInstitutionGrid(false);
+    setSelectedBaseCategoryName(null);
   }, [selection.testIndex, selection.specimenIndex]);
 
-  const toggleInstitutionGrid = () => {
-    setShowInstitutionGrid((current) => !current);
+  useEffect(() => {
+    setSelectedBaseCategoryName(null);
+  }, [collapseVersion]);
+
+  const selectBaseCategory = (baseCategory) => {
+    setSelectedBaseCategoryName(baseCategory.name);
+  };
+
+  const collapseDetail = () => {
+    setSelectedBaseCategoryName(null);
   };
 
   if (!selectedTest || !selectedSpecimen) return null;
 
   return (
-    <>
-      <div className="selection-row">
-        <div>
-          <span>선택 검사</span>
-          <strong>{selectedTest.name}</strong>
-        </div>
-        <div>
-          <span>선택 검체</span>
-          <strong>{selectedSpecimen.key}</strong>
-        </div>
+    <section className="chemistry-specimen-detail">
+      <div className="chemistry-specimen-detail-head">
+        <h4>기준분류별 참가현황 ({selectedSpecimen.key} 기준)</h4>
+        {selectedBaseCategory && (
+          <button
+            type="button"
+            className="chemistry-collapse-button"
+            onClick={collapseDetail}
+          >
+            접기
+          </button>
+        )}
       </div>
-
-      <h4>세분류별 Unacceptable 기관수 ({selectedSpecimen.key} 기준)</h4>
+      <p className="chemistry-count-note">
+        기준분류 기관수는 선택 검체의 기준분류별 참여기관 수이며, 세분류 도넛은
+        선택한 기준분류 안에서 세분류별 비율을 다시 계산합니다.
+      </p>
       <div className="donut-layout chemistry-detail-donut-layout">
-        <div
-          className="donut-box"
-          role="button"
-          tabIndex={0}
-          aria-controls="institution-list-grid"
-          aria-expanded={showInstitutionGrid}
-          onClick={toggleInstitutionGrid}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" || event.key === " ") {
-              event.preventDefault();
-              toggleInstitutionGrid();
-            }
-          }}
-        >
-          <MakerDoughnutChart makers={makers} />
-          <div className="donut-center" aria-hidden="true">
-            <strong>총 {total.toLocaleString()}개</strong>
-            <span>기관</span>
+        <div className="chemistry-base-selection-row">
+          <div className="chemistry-donut-stack">
+            <div className="chemistry-donut-block">
+              <div className="donut-box">
+                <MakerDoughnutChart
+                  makers={baseCategories}
+                  ariaLabel="기준분류별 참가현황 도넛 차트"
+                  onSegmentClick={selectBaseCategory}
+                  selectedName={selectedBaseCategoryName}
+                />
+                <div className="donut-center" aria-hidden="true">
+                  <strong>총 {baseTotal.toLocaleString()}개</strong>
+                  <span>기관</span>
+                </div>
+              </div>
+            </div>
+            {selectedBaseCategory && (
+              <div className="chemistry-donut-block">
+                <h5>세분류별 기관수</h5>
+                <div className="donut-box">
+                  <MakerDoughnutChart makers={makers} />
+                  <div className="donut-center" aria-hidden="true">
+                    <strong>총 {total.toLocaleString()}개</strong>
+                    <span>기관</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
+          {selectedBaseCategory && (
+            <div
+              className="institution-list chemistry-inline-institution-list"
+              id={`institution-list-grid-${selection.specimenIndex}`}
+            >
+              <div className="institution-list-head">
+                <h4>Unacceptable 기관 목록</h4>
+                <div className="institution-list-actions">
+                  <span>
+                    전체 {selectedInstitutionRows.length.toLocaleString()}개
+                    기관
+                  </span>
+                </div>
+              </div>
+              <AckDataGrid
+                className="institution-data-grid"
+                data={withRowNo(selectedInstitutionRows)}
+                columns={toInstitutionGridColumns(institutionColumns)}
+                getRowId={(row, index) =>
+                  `${row.code ?? ""}-${row.instrument ?? ""}-${index}`
+                }
+                paginationMode="pagination"
+                pageSize={institutionPageSize}
+                density="compact"
+                domLayout="autoHeight"
+                stickyHeader
+                enableExcelExport
+                excelFileName={`${selectedTest.code}_${selectedSpecimen.key}_기관목록.xlsx`}
+                aria-label="Unacceptable 기관 목록"
+              />
+            </div>
+          )}
         </div>
-        <DetailBreakdownChart makers={makers} />
       </div>
 
-      {showInstitutionGrid && (
-        <div className="institution-list" id="institution-list-grid">
-          <div className="institution-list-head">
-            <h4>Unacceptable 기관 목록</h4>
-            <div className="institution-list-actions">
-              <span>
-                전체 {selectedInstitutionRows.length.toLocaleString()}개 기관
-              </span>
-            </div>
-          </div>
-          <AckDataGrid
-            className="institution-data-grid"
-            data={withRowNo(selectedInstitutionRows)}
-            columns={toInstitutionGridColumns(institutionColumns)}
-            getRowId={(row, index) =>
-              `${row.code ?? ""}-${row.instrument ?? ""}-${index}`
-            }
-            paginationMode="pagination"
-            pageSize={institutionPageSize}
-            density="compact"
-            domLayout="autoHeight"
-            stickyHeader
-            enableExcelExport
-            excelFileName={`${selectedTest.code}_${selectedSpecimen.key}_기관목록.xlsx`}
-            aria-label="Unacceptable 기관 목록"
-          />
-        </div>
+      {selectedBaseCategory && (
+        <DetailUnacceptableBoxplot
+          boxplotData={detailBoxplotData}
+          selectedBaseCategoryName={selectedBaseCategory.name}
+        />
       )}
+    </section>
+  );
+}
+
+function SelectedTestDetail({
+  selection,
+  data = unacceptableRateData,
+  statisticsRows = [],
+}) {
+  const [collapseVersion, setCollapseVersion] = useState(0);
+  const selectedTest = data.tests[selection.testIndex] ?? data.tests[0];
+  const selectedSpecimens = data.specimens
+    .map((specimen, specimenIndex) => ({
+      ...specimen,
+      specimenIndex,
+      participatingCount:
+        selectedTest?.participatingCounts?.[specimenIndex] ?? 0,
+    }))
+    .filter((specimen) => specimen.participatingCount > 0);
+
+  if (!selectedTest) return null;
+
+  return (
+    <>
+      <div className="chemistry-detail-actions">
+        <button
+          type="button"
+          className="chemistry-collapse-button"
+          onClick={() => setCollapseVersion((version) => version + 1)}
+        >
+          전체접기
+        </button>
+      </div>
+
+      <div className="chemistry-specimen-detail-list">
+        {selectedSpecimens.map((specimen) => (
+          <SelectedSpecimenTestDetail
+            key={specimen.key}
+            data={data}
+            selection={{
+              testIndex: selection.testIndex,
+              specimenIndex: specimen.specimenIndex,
+            }}
+            statisticsRows={statisticsRows}
+            collapseVersion={collapseVersion}
+          />
+        ))}
+      </div>
     </>
   );
 }
@@ -2355,6 +3009,92 @@ function NonconformanceInstitutionGrid({
         aria-label="부적합 분석 Unacceptable 기관 목록"
       />
     </div>
+  );
+}
+
+function ParticipationInstitutionDialog({
+  test,
+  rows: rowsProp,
+  title,
+  excelFileName,
+  onClose,
+}) {
+  const rows = rowsProp ?? test?.participatingRows ?? [];
+  const uniqueInstitutionCount = new Set(rows.map((row) => row.code)).size;
+
+  if (!test && !rowsProp) return null;
+
+  return (
+    <AckDialog
+      open
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
+      title={title ?? `${test.code} / ${test.name} 참여기관 리스트`}
+      maxWidth="sm:max-w-[96vw]"
+      footer={
+        <AckButton variant="primary" onClick={onClose}>
+          닫기
+        </AckButton>
+      }
+    >
+      <div className="participation-dialog">
+        <div className="participation-dialog-summary">
+          <span>참여기관 {uniqueInstitutionCount.toLocaleString()}개</span>
+          <span>결과 {rows.length.toLocaleString()}건</span>
+        </div>
+        <AckDataGrid
+          className="institution-data-grid participation-data-grid"
+          data={rows}
+          columns={participationInstitutionGridColumns}
+          getRowId={(row, index) => `${row.id ?? row.code}-${index}`}
+          paginationMode="pagination"
+          pageSize={20}
+          density="compact"
+          domLayout="autoHeight"
+          stickyHeader
+          enableExcelExport
+          excelFileName={excelFileName ?? `${test.code}_참여기관리스트.xlsx`}
+          aria-label="참여기관 전체 리스트"
+        />
+      </div>
+    </AckDialog>
+  );
+}
+
+function ChemistryTestListDialog({ rows, onClose }) {
+  return (
+    <AckDialog
+      open
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
+      title="검사항목 리스트"
+      maxWidth="sm:max-w-[760px]"
+      footer={
+        <AckButton variant="primary" onClick={onClose}>
+          닫기
+        </AckButton>
+      }
+    >
+      <div className="test-list-dialog">
+        <div className="participation-dialog-summary">
+          <span>검사항목 {rows.length.toLocaleString()}개</span>
+        </div>
+        <AckDataGrid
+          className="institution-data-grid test-list-data-grid"
+          data={rows}
+          columns={chemistryTestListGridColumns}
+          getRowId={(row) => row.id}
+          paginationMode="pagination"
+          pageSize={20}
+          density="compact"
+          domLayout="autoHeight"
+          stickyHeader
+          aria-label="검사항목 리스트"
+        />
+      </div>
+    </AckDialog>
   );
 }
 
@@ -2615,8 +3355,14 @@ function NonconformanceAnalysis({ rows = [] }) {
   );
   const [selectedTestIndex, setSelectedTestIndex] = useState(0);
   const [institutionTarget, setInstitutionTarget] = useState(null);
+  const [participationTargetIndex, setParticipationTargetIndex] =
+    useState(null);
   const selectedTest =
     nonconformanceData.tests[selectedTestIndex] ?? nonconformanceData.tests[0];
+  const participationTargetTest =
+    participationTargetIndex !== null
+      ? nonconformanceData.tests[participationTargetIndex]
+      : null;
   const selectedTargetTest = institutionTarget
     ? nonconformanceData.tests[institutionTarget.testIndex]
     : null;
@@ -2631,6 +3377,7 @@ function NonconformanceAnalysis({ rows = [] }) {
       return Math.min(currentIndex, maxIndex);
     });
     setInstitutionTarget(null);
+    setParticipationTargetIndex(null);
   }, [nonconformanceData.tests.length]);
 
   const selectCard = (testIndex) => {
@@ -2656,6 +3403,12 @@ function NonconformanceAnalysis({ rows = [] }) {
 
       return { testIndex, specimenIndex };
     });
+  };
+
+  const openParticipationDialog = (event, testIndex) => {
+    event.stopPropagation();
+    setSelectedTestIndex(testIndex);
+    setParticipationTargetIndex(testIndex);
   };
 
   if (nonconformanceData.tests.length === 0) {
@@ -2707,12 +3460,19 @@ function NonconformanceAnalysis({ rows = [] }) {
                   </div>
 
                   <div className="unacc-card-metrics">
-                    <div>
+                    <button
+                      type="button"
+                      className="unacc-metric-button"
+                      onClick={(event) =>
+                        openParticipationDialog(event, testIndex)
+                      }
+                      aria-label={`${test.name} 참여기관 리스트 열기`}
+                    >
                       <span>참여기관</span>
                       <strong>
                         {test.participatingCount.toLocaleString()}
                       </strong>
-                    </div>
+                    </button>
                     <div>
                       <span>1개이상 Unacc판정받은기관</span>
                       <strong className="danger">
@@ -2759,6 +3519,13 @@ function NonconformanceAnalysis({ rows = [] }) {
             selectedTest={selectedTargetTest}
             selectedSpecimen={selectedTargetSpecimen}
             onClose={() => setInstitutionTarget(null)}
+          />
+        )}
+
+        {participationTargetTest && (
+          <ParticipationInstitutionDialog
+            test={participationTargetTest}
+            onClose={() => setParticipationTargetIndex(null)}
           />
         )}
       </article>
@@ -3285,15 +4052,18 @@ function createChemistryTrendAnalysisData(periodRows) {
   });
 
   const rows = Array.from(rowMap.values())
-    .sort((left, right) =>
-      sortChemistryLabels(left.testName, right.testName) ||
-      sortChemistryLabels(left.testCode, right.testCode),
+    .sort(
+      (left, right) =>
+        sortChemistryLabels(left.testName, right.testName) ||
+        sortChemistryLabels(left.testCode, right.testCode),
     )
     .map((row) => {
       const periodValues = periods.map((period) => {
         const rawValue = row.valuesByPeriod.get(period.key);
         const participatingCount = getSetSize(rawValue?.totalInstitutions);
-        const unacceptableCount = getSetSize(rawValue?.unacceptableInstitutions);
+        const unacceptableCount = getSetSize(
+          rawValue?.unacceptableInstitutions,
+        );
 
         return {
           periodKey: period.key,
@@ -3301,8 +4071,7 @@ function createChemistryTrendAnalysisData(periodRows) {
             participatingCount > 0
               ? (unacceptableCount / participatingCount) * 100
               : null,
-          unacceptableCount:
-            participatingCount > 0 ? unacceptableCount : null,
+          unacceptableCount: participatingCount > 0 ? unacceptableCount : null,
           participatingCount:
             participatingCount > 0 ? participatingCount : null,
         };
@@ -5587,6 +6356,10 @@ function App() {
   const [activeTab, setActiveTab] = useState("overview");
   const [isStatisticsConfirmed, setIsStatisticsConfirmed] = useState(false);
   const [statisticsDialog, setStatisticsDialog] = useState(null);
+  const [isChemistryParticipationOpen, setIsChemistryParticipationOpen] =
+    useState(false);
+  const [isChemistryTestListOpen, setIsChemistryTestListOpen] =
+    useState(false);
   const [chemistryRows, setChemistryRows] = useState([]);
   const [chemistryStatisticsRows, setChemistryStatisticsRows] = useState([]);
   const [chemistryTrendPeriodRows, setChemistryTrendPeriodRows] = useState([]);
@@ -5595,6 +6368,25 @@ function App() {
     [chemistryRows],
   );
   const chemistrySummary = chemistryDashboardData.summary;
+  const chemistryParticipationRows = useMemo(
+    () => chemistryRows.map(toChemistryParticipationRow),
+    [chemistryRows],
+  );
+  const chemistryTestListRows = useMemo(
+    () =>
+      chemistryDashboardData.tests
+        .map((test) => ({
+          id: test.code,
+          code: test.code,
+          name: test.name,
+        }))
+        .sort(
+          (left, right) =>
+            sortChemistryLabels(left.name, right.name) ||
+            sortChemistryLabels(left.code, right.code),
+        ),
+    [chemistryDashboardData.tests],
+  );
   const activeTabLabel = dashboardTabs.find(
     (tab) => tab.id === activeTab,
   )?.label;
@@ -5716,6 +6508,28 @@ function App() {
     setIsStatisticsConfirmed(false);
   };
 
+  const openChemistryParticipationDialog = () => {
+    if (chemistryParticipationRows.length === 0) return;
+    setIsChemistryParticipationOpen(true);
+  };
+
+  const openChemistryTestListDialog = () => {
+    if (chemistryTestListRows.length === 0) return;
+    setIsChemistryTestListOpen(true);
+  };
+
+  const handleSummaryCardKeyDown = (event, itemIndex) => {
+    if (itemIndex !== 0 && itemIndex !== 1) return;
+    if (event.key !== "Enter" && event.key !== " ") return;
+
+    event.preventDefault();
+    if (itemIndex === 0) {
+      openChemistryParticipationDialog();
+    } else {
+      openChemistryTestListDialog();
+    }
+  };
+
   const statisticsConfirmModal = statisticsDialog ? (
     <StatisticsConfirmModal
       dialogType={statisticsDialog}
@@ -5756,17 +6570,63 @@ function App() {
         {activeTab === "overview" ? (
           <>
             <section className="summary-grid" aria-label="주요 지표">
-              {chemistrySummary.map((item) => (
-                <article className="summary-card" key={item.label}>
-                  <span className="summary-icon" aria-hidden="true" />
-                  <div>
-                    <p>{item.label}</p>
-                    <strong>{item.value}</strong>
-                    <span>{item.unit}</span>
-                  </div>
-                </article>
-              ))}
+              {chemistrySummary.map((item, itemIndex) => {
+                const isParticipationCard = itemIndex === 0;
+                const isTestListCard = itemIndex === 1;
+                const isClickableCard = isParticipationCard || isTestListCard;
+                const openCardDialog = isParticipationCard
+                  ? openChemistryParticipationDialog
+                  : isTestListCard
+                    ? openChemistryTestListDialog
+                    : undefined;
+
+                return (
+                  <article
+                    className={
+                      "summary-card" +
+                      (isClickableCard ? " summary-card-clickable" : "")
+                    }
+                    key={item.label}
+                    role={isClickableCard ? "button" : undefined}
+                    tabIndex={isClickableCard ? 0 : undefined}
+                    aria-label={
+                      isParticipationCard
+                        ? "전체 참여기관 리스트 열기"
+                        : isTestListCard
+                          ? "검사항목 리스트 열기"
+                          : undefined
+                    }
+                    onClick={openCardDialog}
+                    onKeyDown={(event) =>
+                      handleSummaryCardKeyDown(event, itemIndex)
+                    }
+                  >
+                    <span className="summary-icon" aria-hidden="true" />
+                    <div>
+                      <p>{item.label}</p>
+                      <strong>{item.value}</strong>
+                      <span>{item.unit}</span>
+                    </div>
+                  </article>
+                );
+              })}
             </section>
+
+            {isChemistryParticipationOpen && (
+              <ParticipationInstitutionDialog
+                rows={chemistryParticipationRows}
+                title="전체 참여기관 리스트"
+                excelFileName="전체_참여기관리스트.xlsx"
+                onClose={() => setIsChemistryParticipationOpen(false)}
+              />
+            )}
+
+            {isChemistryTestListOpen && (
+              <ChemistryTestListDialog
+                rows={chemistryTestListRows}
+                onClose={() => setIsChemistryTestListOpen(false)}
+              />
+            )}
 
             <section className="content-grid">
               <article className="panel chart-panel">
@@ -5780,6 +6640,7 @@ function App() {
                 <UnacceptableRateChart
                   data={chemistryDashboardData}
                   onSelect={setSelection}
+                  selectedTestIndex={selection.testIndex}
                 />
               </article>
 
@@ -5790,6 +6651,7 @@ function App() {
                 <SelectedTestDetail
                   data={chemistryDashboardData}
                   selection={selection}
+                  statisticsRows={chemistryStatisticsRows}
                 />
               </article>
 
