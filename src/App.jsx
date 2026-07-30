@@ -127,6 +127,7 @@ const dashboardTabs = reportTabs.filter(
 const pageRoutes = [
   { id: "dashboard", path: "dashboard" },
   { id: "new-page", path: "new-page" },
+  { id: "hepatitis-dashboard", path: "hepatitis-dashboard" },
 ];
 
 const defaultPageId = pageRoutes[0].id;
@@ -580,6 +581,28 @@ const chemistryTestListGridColumns = [
     headerName: "검사항목명",
     tooltip: "overflow",
     minWidth: 304,
+  },
+];
+
+const urineParticipationGridColumns = [
+  { field: "code", headerName: "기관코드", tooltip: "overflow", minWidth: 88 },
+  { field: "name", headerName: "기관명", tooltip: "overflow", minWidth: 128 },
+  { field: "testName", headerName: "검사명", tooltip: "overflow", minWidth: 118 },
+  { field: "specimenName", headerName: "검체", tooltip: "overflow", minWidth: 72 },
+  { field: "result", headerName: "결과", tooltip: "overflow", minWidth: 64 },
+  { field: "answer", headerName: "정답", tooltip: "overflow", minWidth: 76 },
+  { field: "maker", headerName: "제조사", tooltip: "overflow", minWidth: 126 },
+  {
+    field: "standardSdi",
+    headerName: "기준SDI",
+    tooltip: "overflow",
+    minWidth: 92,
+  },
+  {
+    field: "detailSdi",
+    headerName: "세부SDI",
+    tooltip: "overflow",
+    minWidth: 86,
   },
 ];
 
@@ -1063,6 +1086,29 @@ function toChemistryParticipationRow(row) {
     judgment: getChemistryJudgment(row),
     baseCategory: row.stndchassinm || row.stndchassicd || "미분류",
     detailCategory: row.detlchassinm || row.detlchassicd || "미분류",
+  };
+}
+
+function toUrineParticipationRow(row, index = 0) {
+  const rawTestName = row["검사명"] ?? row.testName ?? "";
+
+  return {
+    id: [
+      row["검사명"] ?? row.testName,
+      row["검체명"] ?? row.specimen,
+      row["기관코드"] ?? row.code,
+      row.rslt ?? row.result,
+      index,
+    ].join("-"),
+    code: row["기관코드"] ?? row.code ?? "",
+    name: row["기관명"] ?? row.name ?? "",
+    testName: String(rawTestName).replace(/^-/, ""),
+    specimenName: row["검체명"] ?? row.specimen ?? "",
+    result: formatUrineCell(row.rslt ?? row.result),
+    answer: formatUrineCell(row["정답"] ?? row.answer),
+    maker: row["제조사명"] ?? row.maker ?? "",
+    standardSdi: row["기준SDI"] ?? row.standardSdi ?? "",
+    detailSdi: row["세부SDI"] ?? row.detailSdi ?? "",
   };
 }
 
@@ -3062,14 +3108,19 @@ function ParticipationInstitutionDialog({
   );
 }
 
-function ChemistryTestListDialog({ rows, onClose }) {
+function ChemistryTestListDialog({
+  rows,
+  title = "검사항목 리스트",
+  ariaLabel = "검사항목 리스트",
+  onClose,
+}) {
   return (
     <AckDialog
       open
       onOpenChange={(next) => {
         if (!next) onClose();
       }}
-      title="검사항목 리스트"
+      title={title}
       maxWidth="sm:max-w-[760px]"
       footer={
         <AckButton variant="primary" onClick={onClose}>
@@ -3091,7 +3142,53 @@ function ChemistryTestListDialog({ rows, onClose }) {
           density="compact"
           domLayout="autoHeight"
           stickyHeader
-          aria-label="검사항목 리스트"
+          aria-label={ariaLabel}
+        />
+      </div>
+    </AckDialog>
+  );
+}
+
+function UrineParticipationDialog({
+  rows,
+  title = "소변검사 참여기관 리스트",
+  excelFileName = "소변검사_참여기관리스트.xlsx",
+  onClose,
+}) {
+  const uniqueInstitutionCount = new Set(rows.map((row) => row.code)).size;
+
+  return (
+    <AckDialog
+      open
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
+      title={title}
+      maxWidth="sm:max-w-[96vw]"
+      footer={
+        <AckButton variant="primary" onClick={onClose}>
+          닫기
+        </AckButton>
+      }
+    >
+      <div className="participation-dialog">
+        <div className="participation-dialog-summary">
+          <span>기관 {uniqueInstitutionCount.toLocaleString()}개</span>
+          <span>결과 {rows.length.toLocaleString()}건</span>
+        </div>
+        <AckDataGrid
+          className="institution-data-grid participation-data-grid"
+          data={rows}
+          columns={urineParticipationGridColumns}
+          getRowId={(row, index) => `${row.id}-${index}`}
+          paginationMode="pagination"
+          pageSize={20}
+          density="compact"
+          domLayout="autoHeight"
+          stickyHeader
+          enableExcelExport
+          excelFileName={excelFileName}
+          aria-label={title}
         />
       </div>
     </AckDialog>
@@ -4491,19 +4588,57 @@ function ImageSpecimenModal({ onClose }) {
   );
 }
 
-function UrineOverview({ onOpenImageSpecimen }) {
+function UrineOverview({
+  onOpenImageSpecimen,
+  onOpenParticipationList,
+  onOpenTestList,
+}) {
+  const handleSummaryCardKeyDown = (event, itemIndex) => {
+    if (itemIndex !== 0 && itemIndex !== 1) return;
+    if (event.key !== "Enter" && event.key !== " ") return;
+
+    event.preventDefault();
+    if (itemIndex === 0) {
+      onOpenParticipationList();
+    } else {
+      onOpenTestList();
+    }
+  };
+
   return (
     <section className="summary-grid urine-summary-grid" aria-label="주요 지표">
-      {urineSummary.map((item) => (
-        <article className="summary-card" key={item.label}>
-          <span className="summary-icon" aria-hidden="true" />
-          <div>
-            <p>{item.label}</p>
-            <strong>{item.value}</strong>
-            <span>{item.unit}</span>
-          </div>
-        </article>
-      ))}
+      {urineSummary.map((item, itemIndex) => {
+        const isParticipationCard = itemIndex === 0;
+        const isTestListCard = itemIndex === 1;
+        const openCardDialog = isParticipationCard
+          ? onOpenParticipationList
+          : isTestListCard
+            ? onOpenTestList
+            : undefined;
+
+        return (
+          <article
+            className="summary-card summary-card-clickable"
+            key={item.label}
+            role="button"
+            tabIndex={0}
+            aria-label={
+              isParticipationCard
+                ? "소변검사 참여기관 리스트 열기"
+                : "소변검사 검사항목 리스트 열기"
+            }
+            onClick={openCardDialog}
+            onKeyDown={(event) => handleSummaryCardKeyDown(event, itemIndex)}
+          >
+            <span className="summary-icon" aria-hidden="true" />
+            <div>
+              <p>{item.label}</p>
+              <strong>{item.value}</strong>
+              <span>{item.unit}</span>
+            </div>
+          </article>
+        );
+      })}
 
       <article className="summary-card urine-specimen-card">
         <span className="summary-icon" aria-hidden="true" />
@@ -6196,9 +6331,14 @@ function NewPage({
   isStatisticsConfirmed,
   onOpenStatisticsConfirm,
   onResetStatisticsConfirm,
+  dashboardTitle = "2025년 1회차 소변검사",
+  dashboardName = "소변검사",
 }) {
   const [activeTab, setActiveTab] = useState("overview");
   const [isImageSpecimenOpen, setIsImageSpecimenOpen] = useState(false);
+  const [isUrineParticipationOpen, setIsUrineParticipationOpen] =
+    useState(false);
+  const [isUrineTestListOpen, setIsUrineTestListOpen] = useState(false);
   const [urineSelection, setUrineSelection] = useState({
     testIndex: 0,
     specimenIndex: 0,
@@ -6217,6 +6357,52 @@ function NewPage({
     setUrineNonconformanceInstitutionRows,
   ] = useState([]);
   const activeTabLabel = reportTabs.find((tab) => tab.id === activeTab)?.label;
+  const urineParticipationRows = useMemo(
+    () => urineInstitutionRows.map(toUrineParticipationRow),
+    [urineInstitutionRows],
+  );
+  const urineTestListRows = useMemo(() => {
+    const testMap = new Map();
+
+    urineNonconformanceRows.forEach((row) => {
+      const code = row.testCode;
+      const name = String(row.testName ?? "").replace(/^-/, "");
+
+      if (code && !testMap.has(code)) {
+        testMap.set(code, {
+          id: code,
+          code,
+          name: name || code,
+        });
+      }
+    });
+
+    if (testMap.size === 0) {
+      urineUnacceptableRateData.tests.forEach((test) => {
+        testMap.set(test.name, {
+          id: test.name,
+          code: test.name,
+          name: String(test.name).replace(/^-/, ""),
+        });
+      });
+    }
+
+    return Array.from(testMap.values()).sort(
+      (left, right) =>
+        sortChemistryLabels(left.name, right.name) ||
+        sortChemistryLabels(left.code, right.code),
+    );
+  }, [urineNonconformanceRows]);
+
+  const openUrineParticipationDialog = () => {
+    if (urineParticipationRows.length === 0) return;
+    setIsUrineParticipationOpen(true);
+  };
+
+  const openUrineTestListDialog = () => {
+    if (urineTestListRows.length === 0) return;
+    setIsUrineTestListOpen(true);
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -6288,7 +6474,7 @@ function NewPage({
 
   return (
     <div className="app-shell">
-      <AppHeader title="2025년 1회차 소변검사" />
+      <AppHeader title={dashboardTitle} />
       <TatStatusHeader
         isStatisticsConfirmed={isStatisticsConfirmed}
         onOpenStatisticsConfirm={onOpenStatisticsConfirm}
@@ -6301,7 +6487,25 @@ function NewPage({
           <>
             <UrineOverview
               onOpenImageSpecimen={() => setIsImageSpecimenOpen(true)}
+              onOpenParticipationList={openUrineParticipationDialog}
+              onOpenTestList={openUrineTestListDialog}
             />
+            {isUrineParticipationOpen && (
+              <UrineParticipationDialog
+                rows={urineParticipationRows}
+                title={`${dashboardName} 참여기관 리스트`}
+                excelFileName={`${dashboardName}_참여기관리스트.xlsx`}
+                onClose={() => setIsUrineParticipationOpen(false)}
+              />
+            )}
+            {isUrineTestListOpen && (
+              <ChemistryTestListDialog
+                rows={urineTestListRows}
+                title={`${dashboardName} 검사항목 리스트`}
+                ariaLabel={`${dashboardName} 검사항목 리스트`}
+                onClose={() => setIsUrineTestListOpen(false)}
+              />
+            )}
             <section className="content-grid urine-overview-grid">
               <UrineUnacceptableRateChart
                 selectedTestIndex={urineSelection.testIndex}
@@ -6406,7 +6610,11 @@ function App() {
 
   useEffect(() => {
     document.title =
-      activePage === "new-page" ? "소변검사 대시보드" : "일반화학검사 대시보드";
+      activePage === "new-page"
+        ? "소변검사 대시보드"
+        : activePage === "hepatitis-dashboard"
+          ? "간염바이러스항원항체검사 대시보드"
+          : "일반화학검사 대시보드";
   }, [activePage]);
 
   useEffect(() => {
@@ -6543,6 +6751,21 @@ function App() {
     return (
       <>
         <NewPage
+          isStatisticsConfirmed={isStatisticsConfirmed}
+          onOpenStatisticsConfirm={openStatisticsConfirm}
+          onResetStatisticsConfirm={resetStatisticsConfirm}
+        />
+        {statisticsConfirmModal}
+      </>
+    );
+  }
+
+  if (activePage === "hepatitis-dashboard") {
+    return (
+      <>
+        <NewPage
+          dashboardTitle="2025년 1회차 간염바이러스항원항체검사"
+          dashboardName="간염바이러스항원항체검사"
           isStatisticsConfirmed={isStatisticsConfirmed}
           onOpenStatisticsConfirm={openStatisticsConfirm}
           onResetStatisticsConfirm={resetStatisticsConfirm}
