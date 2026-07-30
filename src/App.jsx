@@ -124,6 +124,10 @@ const dashboardTabs = reportTabs.filter(
   (tab) => tab.id !== "statistics-qualitative",
 );
 
+const hepatitisDashboardTabs = reportTabs.filter(
+  (tab) => tab.id !== "statistics-quantitative",
+);
+
 const pageRoutes = [
   { id: "dashboard", path: "dashboard" },
   { id: "new-page", path: "new-page" },
@@ -6333,6 +6337,7 @@ function NewPage({
   onResetStatisticsConfirm,
   dashboardTitle = "2025년 1회차 소변검사",
   dashboardName = "소변검사",
+  tabs = reportTabs,
 }) {
   const [activeTab, setActiveTab] = useState("overview");
   const [isImageSpecimenOpen, setIsImageSpecimenOpen] = useState(false);
@@ -6480,7 +6485,11 @@ function NewPage({
         onOpenStatisticsConfirm={onOpenStatisticsConfirm}
         onResetStatisticsConfirm={onResetStatisticsConfirm}
       />
-      <ReportTabbar activeTab={activeTab} onTabChange={setActiveTab} />
+      <ReportTabbar
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        tabs={tabs}
+      />
 
       <main className="dashboard">
         {activeTab === "overview" ? (
@@ -6766,6 +6775,7 @@ function App() {
         <NewPage
           dashboardTitle="2025년 1회차 간염바이러스항원항체검사"
           dashboardName="간염바이러스항원항체검사"
+          tabs={hepatitisDashboardTabs}
           isStatisticsConfirmed={isStatisticsConfirmed}
           onOpenStatisticsConfirm={openStatisticsConfirm}
           onResetStatisticsConfirm={resetStatisticsConfirm}
