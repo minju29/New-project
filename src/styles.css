@@ -382,6 +382,17 @@ button {
     "detail trend";
 }
 
+.hepatitis-summary-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.hepatitis-overview-grid {
+  grid-template-columns: minmax(0, 1.25fr) minmax(360px, 0.75fr);
+  grid-template-areas:
+    "chart detail"
+    "category category";
+}
+
 .panel {
   min-width: 0;
   padding: 16px 20px;
@@ -1309,6 +1320,183 @@ button {
   white-space: nowrap;
 }
 
+.hepatitis-rate-panel {
+  grid-area: chart;
+}
+
+.hepatitis-selected-panel {
+  grid-area: detail;
+}
+
+.hepatitis-category-panel {
+  grid-area: category;
+}
+
+.hepatitis-chart-frame {
+  height: 330px;
+  min-height: 0;
+}
+
+.hepatitis-doughnut-layout {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.8fr) minmax(320px, 1fr);
+  gap: 20px;
+  align-items: center;
+}
+
+.hepatitis-doughnut-frame {
+  height: 330px;
+  min-width: 0;
+}
+
+.hepatitis-selected-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 0;
+}
+
+.hepatitis-selected-metrics span {
+  padding: 6px 10px;
+  border: 1px solid #d8dee9;
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #25304a;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.hepatitis-mini-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(126px, 1fr));
+  gap: 8px;
+}
+
+.hepatitis-mini-card {
+  display: grid;
+  gap: 5px;
+  padding: 11px 12px;
+  border: 1px solid #d8dee9;
+  border-radius: 7px;
+  background: #fbfcff;
+}
+
+.hepatitis-mini-card span,
+.hepatitis-rank-row b {
+  overflow: hidden;
+  color: #25304a;
+  font-size: 12px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hepatitis-mini-card strong {
+  color: #ef4444;
+  font-size: 20px;
+}
+
+.hepatitis-mini-card small,
+.hepatitis-rank-row em {
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.hepatitis-rank-list {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.hepatitis-rank-list h4 {
+  margin: 0 0 4px;
+  color: #111827;
+  font-size: 14px;
+}
+
+.hepatitis-rank-row {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid #d8dee9;
+  border-radius: 7px;
+  background: #ffffff;
+}
+
+.hepatitis-rank-row span {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: 50%;
+  background: #eaf3ff;
+  color: #0869f4;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.hepatitis-analysis-view,
+.hepatitis-statistics-view,
+.hepatitis-trend-view {
+  gap: 10px;
+}
+
+.hepatitis-test-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 8px;
+}
+
+.hepatitis-test-card {
+  display: grid;
+  gap: 6px;
+  min-height: 122px;
+  padding: 12px;
+  border: 1px solid #d8dee9;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #25304a;
+  text-align: left;
+  cursor: pointer;
+}
+
+.hepatitis-test-card:hover,
+.hepatitis-test-card.active {
+  border-color: #0869f4;
+  box-shadow: 0 8px 18px rgba(8, 105, 244, 0.1);
+}
+
+.hepatitis-test-card span {
+  color: #0869f4;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.hepatitis-test-card b {
+  min-height: 34px;
+  font-size: 13px;
+}
+
+.hepatitis-test-card strong {
+  color: #ef4444;
+  font-size: 22px;
+}
+
+.hepatitis-test-card small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.hepatitis-grid-panel {
+  overflow: hidden;
+}
+
 .rate-chart {
   min-height: 420px;
 }
@@ -2008,6 +2196,12 @@ button {
     grid-template-columns: 1fr;
   }
 
+  .hepatitis-summary-grid,
+  .hepatitis-overview-grid,
+  .hepatitis-doughnut-layout {
+    grid-template-columns: 1fr;
+  }
+
   .unacc-card-grid {
     grid-template-columns: repeat(2, minmax(230px, 1fr));
   }
@@ -2022,6 +2216,13 @@ button {
       "chart"
       "detail"
       "trend";
+  }
+
+  .hepatitis-overview-grid {
+    grid-template-areas:
+      "chart"
+      "detail"
+      "category";
   }
 }
 

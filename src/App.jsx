@@ -544,7 +544,12 @@ const participationInstitutionGridColumns = [
   { field: "code", headerName: "기관코드", tooltip: "overflow", minWidth: 88 },
   { field: "name", headerName: "기관명", tooltip: "overflow", minWidth: 128 },
   { field: "testName", headerName: "검사명", tooltip: "overflow", minWidth: 118 },
-  { field: "specimenName", headerName: "검체", tooltip: "overflow", minWidth: 72 },
+  {
+    field: "specimenName",
+    headerName: "검체명",
+    tooltip: "overflow",
+    minWidth: 72,
+  },
   { field: "result", headerName: "결과", tooltip: "overflow", minWidth: 64 },
   {
     field: "standardSdi",
@@ -592,7 +597,12 @@ const urineParticipationGridColumns = [
   { field: "code", headerName: "기관코드", tooltip: "overflow", minWidth: 88 },
   { field: "name", headerName: "기관명", tooltip: "overflow", minWidth: 128 },
   { field: "testName", headerName: "검사명", tooltip: "overflow", minWidth: 118 },
-  { field: "specimenName", headerName: "검체", tooltip: "overflow", minWidth: 72 },
+  {
+    field: "specimenName",
+    headerName: "검체명",
+    tooltip: "overflow",
+    minWidth: 72,
+  },
   { field: "result", headerName: "결과", tooltip: "overflow", minWidth: 64 },
   { field: "answer", headerName: "정답", tooltip: "overflow", minWidth: 76 },
   { field: "maker", headerName: "제조사", tooltip: "overflow", minWidth: 126 },
@@ -607,6 +617,96 @@ const urineParticipationGridColumns = [
     headerName: "세부SDI",
     tooltip: "overflow",
     minWidth: 86,
+  },
+];
+
+const hepatitisParticipationGridColumns = [
+  {
+    field: "institutionCode",
+    headerName: "기관코드",
+    tooltip: "overflow",
+    minWidth: 92,
+  },
+  {
+    field: "institutionName",
+    headerName: "기관명",
+    tooltip: "overflow",
+    minWidth: 104,
+    cellRenderer: ({ row }) => row.institutionName || "-",
+  },
+  {
+    field: "testName",
+    headerName: "검사명",
+    tooltip: "overflow",
+    minWidth: 220,
+  },
+  {
+    field: "specimenName",
+    headerName: "검체명",
+    tooltip: "overflow",
+    minWidth: 92,
+  },
+  { field: "result", headerName: "결과", tooltip: "overflow", minWidth: 76 },
+  { field: "answer", headerName: "정답", tooltip: "overflow", minWidth: 76 },
+  { field: "judgment", headerName: "판정", tooltip: "overflow", minWidth: 96 },
+  {
+    field: "baseCategory",
+    headerName: "기준분류",
+    tooltip: "overflow",
+    minWidth: 148,
+  },
+  {
+    field: "detailCategory",
+    headerName: "세분류",
+    tooltip: "overflow",
+    minWidth: 176,
+  },
+];
+
+const hepatitisAggregateGridColumns = [
+  {
+    field: "specimenName",
+    headerName: "검체명",
+    tooltip: "overflow",
+    minWidth: 92,
+  },
+  {
+    field: "testCode",
+    headerName: "검사코드",
+    tooltip: "overflow",
+    minWidth: 88,
+  },
+  {
+    field: "testName",
+    headerName: "검사명",
+    tooltip: "overflow",
+    minWidth: 220,
+  },
+  {
+    field: "baseCategory",
+    headerName: "기준분류",
+    tooltip: "overflow",
+    minWidth: 148,
+  },
+  {
+    field: "detailCategory",
+    headerName: "세분류",
+    tooltip: "overflow",
+    minWidth: 176,
+  },
+  { field: "result", headerName: "검사결과", tooltip: "overflow", minWidth: 96 },
+  {
+    field: "count",
+    headerName: "건수",
+    tooltip: "overflow",
+    minWidth: 76,
+    cellRenderer: ({ row }) => Number(row.count ?? 0).toLocaleString(),
+  },
+  {
+    field: "acceptability",
+    headerName: "판정",
+    tooltip: "overflow",
+    minWidth: 116,
   },
 ];
 
@@ -6331,6 +6431,677 @@ function UrineNonconformanceAnalysis({
   );
 }
 
+function formatCount(value) {
+  return Number(value ?? 0).toLocaleString();
+}
+
+function getHepatitisDataUrl() {
+  return getDataUrl("hepatitis-dashboard.json");
+}
+
+function HepatitisParticipationDialog({ rows, onClose }) {
+  const uniqueInstitutionCount = new Set(
+    rows.map((row) => row.institutionCode).filter(Boolean),
+  ).size;
+
+  return (
+    <AckDialog
+      open
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
+      title="간염바이러스항원항체검사 참여기관 리스트"
+      maxWidth="sm:max-w-[96vw]"
+      footer={
+        <AckButton variant="primary" onClick={onClose}>
+          닫기
+        </AckButton>
+      }
+    >
+      <div className="participation-dialog hepatitis-dialog">
+        <div className="participation-dialog-summary">
+          <span>참여기관 {formatCount(uniqueInstitutionCount)}개</span>
+          <span>결과 {formatCount(rows.length)}건</span>
+        </div>
+        <AckDataGrid
+          className="institution-data-grid participation-data-grid"
+          data={rows}
+          columns={hepatitisParticipationGridColumns}
+          getRowId={(row, index) => row.id ?? `hepatitis-inst-${index}`}
+          paginationMode="pagination"
+          pageSize={20}
+          density="compact"
+          domLayout="autoHeight"
+          stickyHeader
+          enableExcelExport
+          excelFileName="간염바이러스항원항체검사_참여기관리스트.xlsx"
+          aria-label="간염바이러스항원항체검사 참여기관 리스트"
+        />
+      </div>
+    </AckDialog>
+  );
+}
+
+function HepatitisSummaryCards({ data, onOpenParticipationList, onOpenTestList }) {
+  const cards = [
+    {
+      label: "참여기관 수",
+      value: data.summary.institutionCount,
+      unit: "기관",
+      onClick: onOpenParticipationList,
+    },
+    {
+      label: "검사항목 수",
+      value: data.summary.testCount,
+      unit: "종목",
+      onClick: onOpenTestList,
+    },
+    { label: "검체 수", value: data.summary.specimenCount, unit: "개" },
+    {
+      label: "Unacceptable rate",
+      value: formatPercent(data.summary.unacceptableRate),
+      unit: "",
+    },
+  ];
+
+  return (
+    <section
+      className="summary-grid hepatitis-summary-grid"
+      aria-label="간염바이러스항원항체검사 주요 지표"
+    >
+      {cards.map((card) => {
+        const Component = card.onClick ? "button" : "article";
+        return (
+          <Component
+            className={
+              "summary-card" + (card.onClick ? " summary-card-clickable" : "")
+            }
+            key={card.label}
+            onClick={card.onClick}
+            type={card.onClick ? "button" : undefined}
+            aria-label={card.onClick ? `${card.label} 리스트 열기` : undefined}
+          >
+            <p>{card.label}</p>
+            <strong>{typeof card.value === "number" ? formatCount(card.value) : card.value}</strong>
+            {card.unit && <span>{card.unit}</span>}
+          </Component>
+        );
+      })}
+    </section>
+  );
+}
+
+function HepatitisRateChart({ tests, selectedCode, onSelect }) {
+  const canvasRef = useRef(null);
+  const chartRef = useRef(null);
+
+  useEffect(() => {
+    if (!canvasRef.current) return undefined;
+    chartRef.current?.destroy();
+
+    const labels = tests.map((test) => test.code);
+    chartRef.current = new Chart(canvasRef.current, {
+      type: "bar",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "Unacceptable rate",
+            data: tests.map((test) => test.rate),
+            backgroundColor: tests.map((test) =>
+              test.code === selectedCode ? "#ef4444" : "#0869f4",
+            ),
+            borderRadius: 6,
+            maxBarThickness: 34,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        onClick: (_event, elements) => {
+          const index = elements?.[0]?.index;
+          if (index !== undefined && tests[index]) onSelect(tests[index].code);
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              title: (items) => tests[items[0].dataIndex]?.name ?? "",
+              label: (item) => `Unacceptable rate ${formatPercent(item.parsed.y)}`,
+              afterLabel: (item) => {
+                const test = tests[item.dataIndex];
+                return `Unacceptable ${formatCount(test.unacceptable)} / 전체 ${formatCount(test.total)}`;
+              },
+            },
+          },
+        },
+        scales: {
+          x: {
+            ticks: { color: "#334155" },
+            grid: { display: false },
+          },
+          y: {
+            beginAtZero: true,
+            ticks: {
+              color: "#334155",
+              callback: (value) => `${value}%`,
+            },
+            title: { display: true, text: "Unacceptable rate (%)" },
+          },
+        },
+      },
+    });
+
+    return () => chartRef.current?.destroy();
+  }, [tests, selectedCode, onSelect]);
+
+  return <canvas ref={canvasRef} aria-label="검사항목별 Unacceptable rate" />;
+}
+
+function HepatitisDoughnutChart({ items }) {
+  const canvasRef = useRef(null);
+  const chartRef = useRef(null);
+  const topItems = items.slice(0, 8);
+
+  useEffect(() => {
+    if (!canvasRef.current) return undefined;
+    chartRef.current?.destroy();
+
+    chartRef.current = new Chart(canvasRef.current, {
+      type: "doughnut",
+      data: {
+        labels: topItems.map((item) => item.name),
+        datasets: [
+          {
+            data: topItems.map((item) => item.total),
+            backgroundColor: topItems.map(
+              (_item, index) => chemistryDetailColors[index % chemistryDetailColors.length],
+            ),
+            borderColor: "#ffffff",
+            borderWidth: 2,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: "62%",
+        plugins: {
+          legend: { position: "bottom" },
+          tooltip: {
+            callbacks: {
+              label: (item) => {
+                const current = topItems[item.dataIndex];
+                return `${current.name}: ${formatCount(current.total)}건 (${formatPercent(
+                  (current.total / topItems.reduce((sum, row) => sum + row.total, 0)) * 100,
+                )})`;
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return () => chartRef.current?.destroy();
+  }, [topItems]);
+
+  return <canvas ref={canvasRef} aria-label="기준분류별 참여현황" />;
+}
+
+function HepatitisOverview({
+  data,
+  selectedTest,
+  onSelectTest,
+  onOpenParticipationList,
+  onOpenTestList,
+}) {
+  const topDetailCategories = selectedTest.detailCategories.slice(0, 5);
+
+  return (
+    <>
+      <HepatitisSummaryCards
+        data={data}
+        onOpenParticipationList={onOpenParticipationList}
+        onOpenTestList={onOpenTestList}
+      />
+      <section className="content-grid hepatitis-overview-grid">
+        <article className="panel chart-panel hepatitis-rate-panel">
+          <div className="panel-head">
+            <div>
+              <h3>검사항목별 Unacceptable rate</h3>
+              <p>{data.latestPeriod.label} 기준, 집계파일 ACCEPTABLE 값으로 계산</p>
+            </div>
+          </div>
+          <div className="hepatitis-chart-frame">
+            <HepatitisRateChart
+              tests={data.tests}
+              selectedCode={selectedTest.code}
+              onSelect={onSelectTest}
+            />
+          </div>
+        </article>
+
+        <article className="panel detail-panel hepatitis-selected-panel">
+          <div className="panel-head">
+            <div>
+              <h3>선택 검사 상세</h3>
+              <p>
+                {selectedTest.code} / {selectedTest.name}
+              </p>
+            </div>
+            <span>{formatPercent(selectedTest.rate)}</span>
+          </div>
+          <div className="hepatitis-selected-metrics">
+            <span>전체 {formatCount(selectedTest.total)}건</span>
+            <span>Unacceptable {formatCount(selectedTest.unacceptable)}건</span>
+            <span>Not Available {formatCount(selectedTest.notAvailable)}건</span>
+          </div>
+          <div className="hepatitis-mini-grid">
+            {selectedTest.specimens.map((specimen) => (
+              <div key={specimen.name} className="hepatitis-mini-card">
+                <span>{specimen.name}</span>
+                <strong>{formatPercent(specimen.rate)}</strong>
+                <small>
+                  {formatCount(specimen.unacceptable)} / {formatCount(specimen.total)}
+                </small>
+              </div>
+            ))}
+          </div>
+        </article>
+
+        <article className="panel chart-panel hepatitis-category-panel">
+          <div className="panel-head">
+            <div>
+              <h3>기준분류별 참여현황</h3>
+              <p>최신 회차 결과 건수 기준</p>
+            </div>
+          </div>
+          <div className="hepatitis-doughnut-layout">
+            <div className="hepatitis-doughnut-frame">
+              <HepatitisDoughnutChart items={data.baseCategories} />
+            </div>
+            <div className="hepatitis-rank-list">
+              <h4>세분류 Top5</h4>
+              {topDetailCategories.map((detail, index) => (
+                <div key={detail.name} className="hepatitis-rank-row">
+                  <span>{index + 1}</span>
+                  <b>{detail.name}</b>
+                  <em>{formatCount(detail.total)}건</em>
+                </div>
+              ))}
+            </div>
+          </div>
+        </article>
+      </section>
+    </>
+  );
+}
+
+function HepatitisNonconformanceAnalysis({ data, selectedTest, onSelectTest }) {
+  const unacceptableRows = data.aggregateRows.filter(
+    (row) => row.acceptability === "Unacceptable",
+  );
+  const visibleRows = unacceptableRows.filter(
+    (row) => row.testCode === selectedTest.code,
+  );
+
+  return (
+    <section className="statistics-view hepatitis-analysis-view">
+      <article className="panel nonconformance-card-panel hepatitis-nonconformance-panel">
+        <div className="panel-head">
+          <div>
+            <h3>검사항목별 부적합 현황</h3>
+            <p>Unacceptable 집계가 있는 검사 우선 표시</p>
+          </div>
+        </div>
+        <div className="hepatitis-test-card-grid">
+          {data.tests.map((test) => (
+            <button
+              type="button"
+              className={`hepatitis-test-card ${
+                selectedTest.code === test.code ? "active" : ""
+              }`}
+              onClick={() => onSelectTest(test.code)}
+              key={test.code}
+            >
+              <span>{test.code}</span>
+              <b>{test.name}</b>
+              <strong>{formatPercent(test.rate)}</strong>
+              <small>
+                {formatCount(test.unacceptable)} / {formatCount(test.total)}건
+              </small>
+            </button>
+          ))}
+        </div>
+      </article>
+
+      <article className="panel statistics-panel hepatitis-grid-panel">
+        <div className="panel-head statistics-head">
+          <div>
+            <h3>{selectedTest.name} Unacceptable 집계</h3>
+            <p>검체명, 기준분류, 세분류, 검사결과별 부적합 건수</p>
+          </div>
+        </div>
+        <AckDataGrid
+          className="statistics-grid"
+          data={visibleRows}
+          columns={hepatitisAggregateGridColumns}
+          getRowId={(row, index) => row.id ?? `hepatitis-unacc-${index}`}
+          paginationMode="pagination"
+          pageSize={20}
+          density="compact"
+          domLayout="autoHeight"
+          stickyHeader
+          enableExcelExport
+          excelFileName={`${selectedTest.code}_간염_Unacceptable집계.xlsx`}
+          aria-label="간염바이러스항원항체검사 Unacceptable 집계"
+        />
+      </article>
+    </section>
+  );
+}
+
+function HepatitisQualitativeStatistics({ data }) {
+  return (
+    <section className="statistics-view hepatitis-statistics-view">
+      <article className="panel statistics-panel hepatitis-grid-panel">
+        <div className="panel-head statistics-head">
+          <div>
+            <h3>기관별 정성 결과 상세</h3>
+            <p>{data.latestPeriod.label} 원자료 기준</p>
+          </div>
+        </div>
+        <AckDataGrid
+          className="statistics-grid"
+          data={data.institutionRows}
+          columns={hepatitisParticipationGridColumns}
+          getRowId={(row, index) => row.id ?? `hepatitis-qual-${index}`}
+          paginationMode="pagination"
+          pageSize={20}
+          density="compact"
+          domLayout="autoHeight"
+          stickyHeader
+          enableExcelExport
+          excelFileName="간염바이러스항원항체검사_기관별정성결과.xlsx"
+          aria-label="간염바이러스항원항체검사 기관별 정성 결과"
+        />
+      </article>
+    </section>
+  );
+}
+
+function HepatitisTrendChart({ trend }) {
+  const canvasRef = useRef(null);
+  const chartRef = useRef(null);
+
+  useEffect(() => {
+    if (!canvasRef.current) return undefined;
+    chartRef.current?.destroy();
+
+    chartRef.current = new Chart(canvasRef.current, {
+      data: {
+        labels: trend.map((row) => row.label),
+        datasets: [
+          {
+            type: "bar",
+            label: "참여기관수",
+            data: trend.map((row) => row.institutionCount),
+            backgroundColor: "rgba(8, 105, 244, 0.24)",
+            borderColor: "#0869f4",
+            borderWidth: 1,
+            yAxisID: "y",
+          },
+          {
+            type: "line",
+            label: "Unacceptable rate",
+            data: trend.map((row) => row.rate),
+            borderColor: "#ef4444",
+            backgroundColor: "#ef4444",
+            borderWidth: 2,
+            pointRadius: 4,
+            tension: 0.3,
+            yAxisID: "y1",
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { position: "bottom" },
+          tooltip: {
+            callbacks: {
+              label: (item) =>
+                item.dataset.yAxisID === "y1"
+                  ? `${item.dataset.label}: ${formatPercent(item.parsed.y)}`
+                  : `${item.dataset.label}: ${formatCount(item.parsed.y)}기관`,
+            },
+          },
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            title: { display: true, text: "참여기관수" },
+          },
+          y1: {
+            beginAtZero: true,
+            position: "right",
+            title: { display: true, text: "Unacceptable rate (%)" },
+            grid: { drawOnChartArea: false },
+            ticks: { callback: (value) => `${value}%` },
+          },
+        },
+      },
+    });
+
+    return () => chartRef.current?.destroy();
+  }, [trend]);
+
+  return <canvas ref={canvasRef} aria-label="회차별 Unacceptable rate 추이" />;
+}
+
+function HepatitisTrendAnalysis({ data }) {
+  const rows = data.trend.map((row) => ({
+    id: row.key,
+    period: row.label,
+    institutionCount: row.institutionCount,
+    resultCount: row.total,
+    unacceptableCount: row.unacceptable,
+    unacceptableRate: formatPercent(row.rate),
+  }));
+  const columns = [
+    { field: "period", headerName: "회차", tooltip: "overflow", minWidth: 116 },
+    {
+      field: "institutionCount",
+      headerName: "참여기관수",
+      tooltip: "overflow",
+      minWidth: 104,
+      cellRenderer: ({ row }) => formatCount(row.institutionCount),
+    },
+    {
+      field: "resultCount",
+      headerName: "결과수",
+      tooltip: "overflow",
+      minWidth: 96,
+      cellRenderer: ({ row }) => formatCount(row.resultCount),
+    },
+    {
+      field: "unacceptableCount",
+      headerName: "Unacceptable",
+      tooltip: "overflow",
+      minWidth: 116,
+      cellRenderer: ({ row }) => formatCount(row.unacceptableCount),
+    },
+    {
+      field: "unacceptableRate",
+      headerName: "Unacceptable rate",
+      tooltip: "overflow",
+      minWidth: 132,
+    },
+  ];
+
+  return (
+    <section className="statistics-view hepatitis-trend-view">
+      <article className="panel trend-analysis-chart-panel">
+        <div className="panel-head">
+          <div>
+            <h3>회차별 참여기관수와 Unacceptable Rate 추이</h3>
+            <p>2024년 01회차부터 최신 회차까지</p>
+          </div>
+        </div>
+        <div className="hepatitis-chart-frame">
+          <HepatitisTrendChart trend={data.trend} />
+        </div>
+      </article>
+      <article className="panel statistics-panel hepatitis-grid-panel">
+        <div className="panel-head statistics-head">
+          <div>
+            <h3>회차별 요약 테이블</h3>
+          </div>
+        </div>
+        <AckDataGrid
+          className="statistics-grid"
+          data={rows}
+          columns={columns}
+          getRowId={(row) => row.id}
+          paginationMode="pagination"
+          pageSize={10}
+          density="compact"
+          domLayout="autoHeight"
+          stickyHeader
+          enableExcelExport
+          excelFileName="간염바이러스항원항체검사_회차별추이.xlsx"
+          aria-label="간염바이러스항원항체검사 회차별 추이"
+        />
+      </article>
+    </section>
+  );
+}
+
+function HepatitisDashboard({
+  isStatisticsConfirmed,
+  onOpenStatisticsConfirm,
+  onResetStatisticsConfirm,
+}) {
+  const [activeTab, setActiveTab] = useState("overview");
+  const [data, setData] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [selectedTestCode, setSelectedTestCode] = useState(null);
+  const [isParticipationOpen, setIsParticipationOpen] = useState(false);
+  const [isTestListOpen, setIsTestListOpen] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    setIsLoading(true);
+    setLoadError(false);
+
+    fetch(getHepatitisDataUrl())
+      .then((response) => {
+        if (!response.ok) throw new Error("Failed to load hepatitis data");
+        return response.json();
+      })
+      .then((payload) => {
+        if (!isMounted) return;
+        setData(payload);
+        setSelectedTestCode(payload.tests[0]?.code ?? null);
+        setIsLoading(false);
+      })
+      .catch(() => {
+        if (!isMounted) return;
+        setData(null);
+        setLoadError(true);
+        setIsLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const selectedTest =
+    data?.tests.find((test) => test.code === selectedTestCode) ??
+    data?.tests[0];
+
+  const testListRows = useMemo(
+    () =>
+      data?.tests.map((test) => ({
+        id: test.code,
+        code: test.code,
+        name: test.name,
+      })) ?? [],
+    [data],
+  );
+
+  return (
+    <div className="app-shell">
+      <AppHeader title={data?.title ?? "간염바이러스항원항체검사 대시보드"} />
+      <TatStatusHeader
+        isStatisticsConfirmed={isStatisticsConfirmed}
+        onOpenStatisticsConfirm={onOpenStatisticsConfirm}
+        onResetStatisticsConfirm={onResetStatisticsConfirm}
+      />
+      <ReportTabbar
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        tabs={hepatitisDashboardTabs}
+      />
+
+      <main className="dashboard hepatitis-dashboard">
+        {isLoading ? (
+          <section className="panel tab-empty-panel">
+            <h2>데이터를 불러오는 중입니다</h2>
+          </section>
+        ) : loadError || !data || !selectedTest ? (
+          <section className="panel tab-empty-panel">
+            <h2>간염바이러스항원항체검사 데이터를 불러오지 못했습니다</h2>
+          </section>
+        ) : activeTab === "overview" ? (
+          <>
+            <HepatitisOverview
+              data={data}
+              selectedTest={selectedTest}
+              onSelectTest={setSelectedTestCode}
+              onOpenParticipationList={() => setIsParticipationOpen(true)}
+              onOpenTestList={() => setIsTestListOpen(true)}
+            />
+            {isParticipationOpen && (
+              <HepatitisParticipationDialog
+                rows={data.institutionRows}
+                onClose={() => setIsParticipationOpen(false)}
+              />
+            )}
+            {isTestListOpen && (
+              <ChemistryTestListDialog
+                rows={testListRows}
+                title="간염바이러스항원항체검사 검사항목 리스트"
+                ariaLabel="간염바이러스항원항체검사 검사항목 리스트"
+                onClose={() => setIsTestListOpen(false)}
+              />
+            )}
+          </>
+        ) : activeTab === "nonconformance" ? (
+          <HepatitisNonconformanceAnalysis
+            data={data}
+            selectedTest={selectedTest}
+            onSelectTest={setSelectedTestCode}
+          />
+        ) : activeTab === "statistics-qualitative" ? (
+          <HepatitisQualitativeStatistics data={data} />
+        ) : activeTab === "trend" ? (
+          <HepatitisTrendAnalysis data={data} />
+        ) : (
+          <section className="panel tab-empty-panel">
+            <h2>준비 중입니다</h2>
+          </section>
+        )}
+      </main>
+    </div>
+  );
+}
+
 function NewPage({
   isStatisticsConfirmed,
   onOpenStatisticsConfirm,
@@ -6772,10 +7543,7 @@ function App() {
   if (activePage === "hepatitis-dashboard") {
     return (
       <>
-        <NewPage
-          dashboardTitle="2025년 1회차 간염바이러스항원항체검사"
-          dashboardName="간염바이러스항원항체검사"
-          tabs={hepatitisDashboardTabs}
+        <HepatitisDashboard
           isStatisticsConfirmed={isStatisticsConfirmed}
           onOpenStatisticsConfirm={openStatisticsConfirm}
           onResetStatisticsConfirm={resetStatisticsConfirm}
