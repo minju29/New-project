@@ -6531,34 +6531,222 @@ function HepatitisSummaryCards({ data, onOpenParticipationList, onOpenTestList }
   );
 }
 
-function HepatitisRateChart({ tests, selectedCode, onSelect }) {
+function getHepatitisSpecimens(data) {
+  return (data?.specimens ?? [])
+    .slice()
+    .sort((left, right) => sortChemistryLabels(left.name, right.name));
+}
+
+function getHepatitisAggregateRows(data, testCode, specimenName, baseCategory) {
+  return (data?.aggregateRows ?? []).filter(
+    (row) =>
+      (!testCode || row.testCode === testCode) &&
+      (!specimenName || row.specimenName === specimenName) &&
+      (!baseCategory || row.baseCategory === baseCategory),
+  );
+}
+
+function summarizeHepatitisRows(rows, keyName) {
+  const bucketMap = new Map();
+
+  rows.forEach((row) => {
+    const name = row[keyName] || "미분류";
+    const count = Number(row.count ?? 0);
+
+    if (!Number.isFinite(count) || count <= 0) return;
+    if (!bucketMap.has(name)) {
+      bucketMap.set(name, {
+        name,
+        total: 0,
+        acceptable: 0,
+        unacceptable: 0,
+        notAvailable: 0,
+      });
+    }
+
+    const bucket = bucketMap.get(name);
+    bucket.total += count;
+    if (row.acceptability === "Unacceptable") {
+      bucket.unacceptable += count;
+    } else if (row.acceptability === "Not Available") {
+      bucket.notAvailable += count;
+    } else {
+      bucket.acceptable += count;
+    }
+  });
+
+  return Array.from(bucketMap.values())
+    .map((bucket) => ({
+      ...bucket,
+      rate: bucket.total > 0 ? (bucket.unacceptable / bucket.total) * 100 : 0,
+    }))
+    .sort(
+      (left, right) =>
+        right.total - left.total || sortChemistryLabels(left.name, right.name),
+    );
+}
+
+function createHepatitisResultDistributionRows(rows) {
+  return summarizeHepatitisRows(rows, "result").map((row) => ({
+    label: row.name,
+    count: row.total,
+    unacceptable: row.unacceptable,
+    rate: row.rate,
+  }));
+}
+
+function createHepatitisNonconformanceCards(data) {
+  return (data?.tests ?? [])
+    .map((test) => ({
+      testCode: test.code,
+      testName: test.name,
+      displayName: test.name,
+      participating: test.total,
+      totalUnacceptable: test.unacceptable,
+      specimens: test.specimens.map((specimen) => ({
+        specimen: specimen.name,
+        count: specimen.unacceptable,
+        total: specimen.total,
+        rate: specimen.rate,
+      })),
+    }))
+    .sort(
+      (left, right) =>
+        right.totalUnacceptable - left.totalUnacceptable ||
+        sortChemistryLabels(left.displayName, right.displayName),
+    );
+}
+
+function createHepatitisTrendAnalysisData(data) {
+  const periods = (data?.trend ?? []).map((period, index, rows) => ({
+    key: period.key,
+    label: period.label,
+    isCurrent: index === rows.length - 1,
+  }));
+
+  const rows = (data?.tests ?? []).map((test) => {
+    const periodValues = periods.map((period) => {
+      const periodRow = data.trend
+        .find((trendPeriod) => trendPeriod.key === period.key)
+        ?.tests.find((trendTest) => trendTest.code === test.code);
+
+      return {
+        periodKey: period.key,
+        rate: periodRow ? periodRow.rate : null,
+        unacceptableCount: periodRow ? periodRow.unacceptable : null,
+        participatingCount: periodRow ? periodRow.total : null,
+      };
+    });
+    const chartValues = periodValues.map((value, index) => ({
+      ...value,
+      label: periods[index]?.label,
+    }));
+    const availableValues = periodValues.filter((value) => value.rate !== null);
+    const latestValue = availableValues.at(-1);
+    const previousValue = availableValues.at(-2);
+
+    return {
+      code: test.code,
+      displayName: test.name,
+      periodValues,
+      chartValues,
+      trendValue:
+        latestValue && previousValue
+          ? Number(latestValue.rate) - Number(previousValue.rate)
+          : null,
+    };
+  });
+
+  return { periods, rows };
+}
+
+function HepatitisResultDistributionMini({ rows, selectedLabel }) {
+  const distributionRows = createHepatitisResultDistributionRows(rows);
+  const total = distributionRows.reduce((sum, row) => sum + row.count, 0);
+  const maxCount = Math.max(1, ...distributionRows.map((row) => row.count));
+
+  if (distributionRows.length === 0) {
+    return (
+      <div className="urine-detail-empty">
+        표시할 결과 분포 데이터가 없습니다.
+      </div>
+    );
+  }
+
+  return (
+    <div className="result-distribution-card hepatitis-result-card">
+      <div className="result-distribution-head">
+        <h4>{selectedLabel} 결과값 분포</h4>
+        <i>전체 {formatCount(total)}건</i>
+      </div>
+      <div className="result-distribution-bars">
+        {distributionRows.map((row) => (
+          <div
+            className={`result-distribution-row ${
+              row.unacceptable > 0 ? "is-major" : ""
+            }`}
+            key={row.label}
+          >
+            <span className="result-distribution-label">{row.label}</span>
+            <div className="result-distribution-track">
+              <span
+                className="result-distribution-fill"
+                style={{ width: `${(row.count / maxCount) * 100}%` }}
+              />
+            </div>
+            <strong>
+              {formatCount(row.count)}건 / Unacc {formatCount(row.unacceptable)}
+            </strong>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function HepatitisRateChart({ data, selectedCode, onSelect }) {
   const canvasRef = useRef(null);
   const chartRef = useRef(null);
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const tests = data.tests;
+  const specimens = getHepatitisSpecimens(data);
+  const maxRate = Math.max(
+    1,
+    ...tests.flatMap((test) => test.specimens.map((specimen) => specimen.rate)),
+  );
+  const chartWidth = Math.round(Math.max(900, tests.length * 92) * zoomLevel);
+  const chartHeight = Math.round(320 * zoomLevel);
+  const clampZoom = (nextZoom) => Math.min(2, Math.max(0.75, nextZoom));
+  const changeZoom = (nextZoom) => setZoomLevel(clampZoom(nextZoom));
 
   useEffect(() => {
     if (!canvasRef.current) return undefined;
     chartRef.current?.destroy();
 
-    const labels = tests.map((test) => test.code);
+    const labels = tests.map((test) => test.name);
     chartRef.current = new Chart(canvasRef.current, {
       type: "bar",
       data: {
         labels,
-        datasets: [
-          {
-            label: "Unacceptable rate",
-            data: tests.map((test) => test.rate),
-            backgroundColor: tests.map((test) =>
-              test.code === selectedCode ? "#ef4444" : "#0869f4",
-            ),
-            borderRadius: 6,
-            maxBarThickness: 34,
-          },
-        ],
+        datasets: specimens.map((specimen, specimenIndex) => ({
+          label: specimen.name,
+          data: tests.map(
+            (test) =>
+              test.specimens.find((item) => item.name === specimen.name)
+                ?.rate ?? null,
+          ),
+          backgroundColor:
+            chemistryDetailColors[specimenIndex % chemistryDetailColors.length],
+          borderColor:
+            chemistryDetailColors[specimenIndex % chemistryDetailColors.length],
+          borderRadius: 3,
+          maxBarThickness: 18,
+        })),
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        animation: false,
         onClick: (_event, elements) => {
           const index = elements?.[0]?.index;
           if (index !== undefined && tests[index]) onSelect(tests[index].code);
@@ -6571,7 +6759,9 @@ function HepatitisRateChart({ tests, selectedCode, onSelect }) {
               label: (item) => `Unacceptable rate ${formatPercent(item.parsed.y)}`,
               afterLabel: (item) => {
                 const test = tests[item.dataIndex];
-                return `Unacceptable ${formatCount(test.unacceptable)} / 전체 ${formatCount(test.total)}`;
+                return `검사항목 전체 Unacceptable ${formatCount(
+                  test.unacceptable,
+                )} / ${formatCount(test.total)}건`;
               },
             },
           },
@@ -6583,9 +6773,11 @@ function HepatitisRateChart({ tests, selectedCode, onSelect }) {
           },
           y: {
             beginAtZero: true,
+            suggestedMax: Math.ceil(maxRate * 1.25 * 10) / 10,
             ticks: {
               color: "#334155",
-              callback: (value) => `${value}%`,
+              maxTicksLimit: zoomLevel >= 1.5 ? 12 : 7,
+              callback: (value) => `${Number(value).toFixed(2)}%`,
             },
             title: { display: true, text: "Unacceptable rate (%)" },
           },
@@ -6594,15 +6786,80 @@ function HepatitisRateChart({ tests, selectedCode, onSelect }) {
     });
 
     return () => chartRef.current?.destroy();
-  }, [tests, selectedCode, onSelect]);
+  }, [tests, specimens, selectedCode, onSelect, maxRate, zoomLevel]);
 
-  return <canvas ref={canvasRef} aria-label="검사항목별 Unacceptable rate" />;
+  return (
+    <article className="panel chart-panel hepatitis-rate-panel">
+      <div className="panel-head">
+        <div>
+          <h3>검사항목별 Unacceptable Rate</h3>
+          <p>{data.latestPeriod.label} 기준, 검체별 비율을 표시합니다.</p>
+        </div>
+        <span>단위: %</span>
+      </div>
+      <div className="rate-chart">
+        <div className="chart-toolbar">
+          <div className="chart-legend" aria-label="검체 범례">
+            {specimens.map((specimen, index) => (
+              <span key={specimen.name}>
+                <i
+                  style={{
+                    backgroundColor:
+                      chemistryDetailColors[index % chemistryDetailColors.length],
+                  }}
+                />
+                {specimen.name}
+              </span>
+            ))}
+          </div>
+          <div className="chart-zoom" aria-label="그래프 확대 축소">
+            <button type="button" onClick={() => changeZoom(zoomLevel - 0.25)}>
+              -
+            </button>
+            <input
+              type="range"
+              min="75"
+              max="200"
+              step="25"
+              value={Math.round(zoomLevel * 100)}
+              aria-label="그래프 확대"
+              onChange={(event) => changeZoom(Number(event.target.value) / 100)}
+            />
+            <button type="button" onClick={() => changeZoom(zoomLevel + 0.25)}>
+              +
+            </button>
+            <button type="button" onClick={() => changeZoom(1)}>
+              {Math.round(zoomLevel * 100)}%
+            </button>
+          </div>
+        </div>
+        <div className="chart-scroll">
+          <div
+            className="chart-canvas"
+            style={{
+              width: `max(100%, ${chartWidth}px)`,
+              height: `${chartHeight}px`,
+            }}
+          >
+            <canvas ref={canvasRef} aria-label="간염 검사항목별 Unacceptable rate" />
+          </div>
+        </div>
+      </div>
+    </article>
+  );
 }
 
-function HepatitisDoughnutChart({ items }) {
+function HepatitisDoughnutChart({
+  items,
+  selectedName,
+  onSelect,
+  centerTitle,
+  centerSubtitle,
+}) {
   const canvasRef = useRef(null);
   const chartRef = useRef(null);
-  const topItems = items.slice(0, 8);
+  const topItems = useMemo(() => items.slice(0, 8), [items]);
+  const total = topItems.reduce((sum, row) => sum + row.total, 0);
 
   useEffect(() => {
     if (!canvasRef.current) return undefined;
@@ -6618,15 +6875,30 @@ function HepatitisDoughnutChart({ items }) {
             backgroundColor: topItems.map(
               (_item, index) => chemistryDetailColors[index % chemistryDetailColors.length],
             ),
-            borderColor: "#ffffff",
-            borderWidth: 2,
+            borderColor: topItems.map((item) =>
+              item.name === selectedName ? "#111827" : "#ffffff",
+            ),
+            borderWidth: topItems.map((item) =>
+              item.name === selectedName ? 3 : 1,
+            ),
           },
         ],
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        animation: false,
         cutout: "62%",
+        onClick: (_event, elements) => {
+          const index = elements?.[0]?.index;
+          if (index !== undefined && topItems[index]) {
+            onSelect?.(topItems[index].name);
+          }
+        },
+        onHover: (event, elements) => {
+          const target = event.native?.target;
+          if (target) target.style.cursor = elements.length ? "pointer" : "default";
+        },
         plugins: {
           legend: { position: "bottom" },
           tooltip: {
@@ -6634,7 +6906,7 @@ function HepatitisDoughnutChart({ items }) {
               label: (item) => {
                 const current = topItems[item.dataIndex];
                 return `${current.name}: ${formatCount(current.total)}건 (${formatPercent(
-                  (current.total / topItems.reduce((sum, row) => sum + row.total, 0)) * 100,
+                  total > 0 ? (current.total / total) * 100 : 0,
                 )})`;
               },
             },
@@ -6644,9 +6916,241 @@ function HepatitisDoughnutChart({ items }) {
     });
 
     return () => chartRef.current?.destroy();
-  }, [topItems]);
+  }, [topItems, selectedName, onSelect, total]);
 
-  return <canvas ref={canvasRef} aria-label="기준분류별 참여현황" />;
+  return (
+    <>
+      <canvas ref={canvasRef} aria-label="간염 분류별 현황" />
+      <div className="donut-center" aria-hidden="true">
+        <strong>{centerTitle ?? `총 ${formatCount(total)}건`}</strong>
+        <span>{centerSubtitle ?? "집계"}</span>
+      </div>
+    </>
+  );
+}
+
+function HepatitisSelectedTestDetail({ data, selectedTest }) {
+  const [activeTarget, setActiveTarget] = useState(null);
+  const specimenDetails = selectedTest.specimens.map((specimen) => {
+    const rows = getHepatitisAggregateRows(
+      data,
+      selectedTest.code,
+      specimen.name,
+    );
+    const baseCategories = summarizeHepatitisRows(rows, "baseCategory");
+
+    return {
+      specimen,
+      rows,
+      baseCategories,
+    };
+  });
+  const activeRows = activeTarget
+    ? getHepatitisAggregateRows(
+        data,
+        selectedTest.code,
+        activeTarget.specimenName,
+        activeTarget.baseCategory,
+      ).filter((row) => row.acceptability === "Unacceptable")
+    : [];
+  const activeAllRows = activeTarget
+    ? getHepatitisAggregateRows(
+        data,
+        selectedTest.code,
+        activeTarget.specimenName,
+        activeTarget.baseCategory,
+      )
+    : [];
+  const activeDetailCategories = summarizeHepatitisRows(
+    activeAllRows,
+    "detailCategory",
+  ).slice(0, 5);
+
+  useEffect(() => {
+    setActiveTarget(null);
+  }, [selectedTest.code]);
+
+  const toggleBaseCategory = (specimenName, baseCategory) => {
+    setActiveTarget((current) =>
+      current?.specimenName === specimenName &&
+      current?.baseCategory === baseCategory
+        ? null
+        : { specimenName, baseCategory },
+    );
+  };
+
+  return (
+    <article className="panel detail-panel hepatitis-selected-panel">
+      <div className="panel-head">
+        <div>
+          <h3>선택 검사 상세</h3>
+          <p>
+            {selectedTest.code} / {selectedTest.name}
+          </p>
+        </div>
+        <span>{formatPercent(selectedTest.rate)}</span>
+      </div>
+      <div className="selection-row">
+        <div>
+          <span>선택 검사</span>
+          <strong>{selectedTest.name}</strong>
+        </div>
+        <div>
+          <span>검체 수</span>
+          <strong>{selectedTest.specimens.length}개</strong>
+        </div>
+      </div>
+
+      <div className="urine-specimen-detail-list">
+        {specimenDetails.map((detail) => (
+          <section
+            className="urine-specimen-detail-card hepatitis-specimen-detail-card"
+            key={detail.specimen.name}
+          >
+            <h4>
+              기준분류별 Unacceptable Rate ({detail.specimen.name} 기준)
+              <span>{formatPercent(detail.specimen.rate)}</span>
+            </h4>
+            {detail.baseCategories.length > 0 ? (
+              <div className="donut-layout urine-specimen-donut-layout">
+                <div className="donut-box urine-specimen-donut-box">
+                  <HepatitisDoughnutChart
+                    items={detail.baseCategories}
+                    selectedName={
+                      activeTarget?.specimenName === detail.specimen.name
+                        ? activeTarget.baseCategory
+                        : undefined
+                    }
+                    onSelect={(baseCategory) =>
+                      toggleBaseCategory(detail.specimen.name, baseCategory)
+                    }
+                    centerTitle={`총 ${formatCount(detail.specimen.total)}건`}
+                    centerSubtitle={detail.specimen.name}
+                  />
+                </div>
+                <div className="maker-list">
+                  {detail.baseCategories.map((base, index) => (
+                    <button
+                      type="button"
+                      className={`maker-item hepatitis-maker-button ${
+                        activeTarget?.specimenName === detail.specimen.name &&
+                        activeTarget?.baseCategory === base.name
+                          ? "active"
+                          : ""
+                      }`}
+                      key={`${detail.specimen.name}-${base.name}`}
+                      onClick={() =>
+                        toggleBaseCategory(detail.specimen.name, base.name)
+                      }
+                    >
+                      <i
+                        style={{
+                          backgroundColor:
+                            chemistryDetailColors[
+                              index % chemistryDetailColors.length
+                            ],
+                        }}
+                      />
+                      <b>{base.name}</b>
+                      <span>
+                        {formatCount(base.total)}건 ({formatPercent(base.rate)})
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="urine-detail-empty">
+                표시할 기준분류 데이터가 없습니다.
+              </div>
+            )}
+          </section>
+        ))}
+      </div>
+
+      {activeTarget && (
+        <div className="institution-list hepatitis-selected-breakdown">
+          <div className="institution-list-head">
+            <h4>
+              {selectedTest.name} / {activeTarget.specimenName} /{" "}
+              {activeTarget.baseCategory} Unacceptable 집계
+            </h4>
+            <div className="institution-list-actions">
+              <span>
+                전체{" "}
+                {formatCount(
+                  activeRows.reduce((sum, row) => sum + Number(row.count ?? 0), 0),
+                )}
+                건
+              </span>
+              <AckButton
+                variant="secondary"
+                size="small"
+                onClick={() => setActiveTarget(null)}
+              >
+                접기
+              </AckButton>
+            </div>
+          </div>
+          <div className="hepatitis-breakdown-layout">
+            <div className="hepatitis-rank-list">
+              <h4>세분류 Top5</h4>
+              {activeDetailCategories.map((detail, index) => (
+                <div className="hepatitis-rank-row" key={detail.name}>
+                  <span>{index + 1}</span>
+                  <b>{detail.name}</b>
+                  <em>
+                    {formatCount(detail.total)}건 / {formatPercent(detail.rate)}
+                  </em>
+                </div>
+              ))}
+            </div>
+            <HepatitisResultDistributionMini
+              rows={activeAllRows}
+              selectedLabel={activeTarget.baseCategory}
+            />
+          </div>
+          <AckDataGrid
+            className="institution-data-grid"
+            data={activeRows}
+            columns={hepatitisAggregateGridColumns}
+            getRowId={(row, index) => row.id ?? `hep-selected-${index}`}
+            paginationMode="pagination"
+            pageSize={10}
+            density="compact"
+            domLayout="autoHeight"
+            stickyHeader
+            enableExcelExport
+            excelFileName={`${selectedTest.code}_${activeTarget.specimenName}_${activeTarget.baseCategory}_Unacceptable집계.xlsx`}
+            aria-label="간염 선택검사 Unacceptable 집계"
+          />
+        </div>
+      )}
+    </article>
+  );
+}
+
+function HepatitisOverviewTrendPanel({ data, selectedTest }) {
+  const selectedTrendRow = createHepatitisTrendAnalysisData(data).rows.find(
+    (row) => row.code === selectedTest.code,
+  );
+
+  return (
+    <article className="panel trend-analysis-chart-panel hepatitis-overview-trend">
+      <div className="panel-head">
+        <div>
+          <h3>회차별 Unacc Rate 추이</h3>
+          <p>{selectedTest.name}</p>
+        </div>
+        <span>막대: 결과건수 / 선: Unacceptable Rate</span>
+      </div>
+      {selectedTrendRow ? (
+        <TrendAnalysisChart row={selectedTrendRow} />
+      ) : (
+        <div className="urine-detail-empty">표시할 추이 데이터가 없습니다.</div>
+      )}
+    </article>
+  );
 }
 
 function HepatitisOverview({
@@ -6656,8 +7160,6 @@ function HepatitisOverview({
   onOpenParticipationList,
   onOpenTestList,
 }) {
-  const topDetailCategories = selectedTest.detailCategories.slice(0, 5);
-
   return (
     <>
       <HepatitisSummaryCards
@@ -6666,143 +7168,235 @@ function HepatitisOverview({
         onOpenTestList={onOpenTestList}
       />
       <section className="content-grid hepatitis-overview-grid">
-        <article className="panel chart-panel hepatitis-rate-panel">
-          <div className="panel-head">
-            <div>
-              <h3>검사항목별 Unacceptable rate</h3>
-              <p>{data.latestPeriod.label} 기준, 집계파일 ACCEPTABLE 값으로 계산</p>
-            </div>
-          </div>
-          <div className="hepatitis-chart-frame">
-            <HepatitisRateChart
-              tests={data.tests}
-              selectedCode={selectedTest.code}
-              onSelect={onSelectTest}
-            />
-          </div>
-        </article>
-
-        <article className="panel detail-panel hepatitis-selected-panel">
-          <div className="panel-head">
-            <div>
-              <h3>선택 검사 상세</h3>
-              <p>
-                {selectedTest.code} / {selectedTest.name}
-              </p>
-            </div>
-            <span>{formatPercent(selectedTest.rate)}</span>
-          </div>
-          <div className="hepatitis-selected-metrics">
-            <span>전체 {formatCount(selectedTest.total)}건</span>
-            <span>Unacceptable {formatCount(selectedTest.unacceptable)}건</span>
-            <span>Not Available {formatCount(selectedTest.notAvailable)}건</span>
-          </div>
-          <div className="hepatitis-mini-grid">
-            {selectedTest.specimens.map((specimen) => (
-              <div key={specimen.name} className="hepatitis-mini-card">
-                <span>{specimen.name}</span>
-                <strong>{formatPercent(specimen.rate)}</strong>
-                <small>
-                  {formatCount(specimen.unacceptable)} / {formatCount(specimen.total)}
-                </small>
-              </div>
-            ))}
-          </div>
-        </article>
-
-        <article className="panel chart-panel hepatitis-category-panel">
-          <div className="panel-head">
-            <div>
-              <h3>기준분류별 참여현황</h3>
-              <p>최신 회차 결과 건수 기준</p>
-            </div>
-          </div>
-          <div className="hepatitis-doughnut-layout">
-            <div className="hepatitis-doughnut-frame">
-              <HepatitisDoughnutChart items={data.baseCategories} />
-            </div>
-            <div className="hepatitis-rank-list">
-              <h4>세분류 Top5</h4>
-              {topDetailCategories.map((detail, index) => (
-                <div key={detail.name} className="hepatitis-rank-row">
-                  <span>{index + 1}</span>
-                  <b>{detail.name}</b>
-                  <em>{formatCount(detail.total)}건</em>
-                </div>
-              ))}
-            </div>
-          </div>
-        </article>
+        <HepatitisRateChart
+          data={data}
+          selectedCode={selectedTest.code}
+          onSelect={onSelectTest}
+        />
+        <HepatitisSelectedTestDetail data={data} selectedTest={selectedTest} />
+        <HepatitisOverviewTrendPanel data={data} selectedTest={selectedTest} />
       </section>
     </>
   );
 }
 
 function HepatitisNonconformanceAnalysis({ data, selectedTest, onSelectTest }) {
-  const unacceptableRows = data.aggregateRows.filter(
-    (row) => row.acceptability === "Unacceptable",
-  );
-  const visibleRows = unacceptableRows.filter(
-    (row) => row.testCode === selectedTest.code,
-  );
+  const [institutionTarget, setInstitutionTarget] = useState(null);
+  const cards = createHepatitisNonconformanceCards(data);
+  const selectedCard =
+    cards.find((card) => card.testCode === selectedTest.code) ?? cards[0];
+  const selectedRows = institutionTarget
+    ? getHepatitisAggregateRows(
+        data,
+        institutionTarget.testCode,
+        institutionTarget.specimen,
+      ).filter((row) => row.acceptability === "Unacceptable")
+    : [];
+
+  const selectCard = (card) => {
+    onSelectTest(card.testCode);
+    setInstitutionTarget(null);
+  };
+
+  const toggleAggregateList = (event, card, specimen) => {
+    event.stopPropagation();
+    onSelectTest(card.testCode);
+    setInstitutionTarget((currentTarget) => {
+      if (
+        currentTarget?.testCode === card.testCode &&
+        currentTarget?.specimen === specimen.specimen
+      ) {
+        return null;
+      }
+
+      return {
+        testName: card.testName,
+        testCode: card.testCode,
+        specimen: specimen.specimen,
+      };
+    });
+  };
 
   return (
-    <section className="statistics-view hepatitis-analysis-view">
+    <section className="nonconformance-view urine-nonconformance-view hepatitis-analysis-view">
       <article className="panel nonconformance-card-panel hepatitis-nonconformance-panel">
         <div className="panel-head">
           <div>
-            <h3>검사항목별 부적합 현황</h3>
-            <p>Unacceptable 집계가 있는 검사 우선 표시</p>
+            <h3>검사항목별 Unacceptable 상세현황</h3>
+            <p>검체별 비율과 집계 목록을 함께 확인합니다.</p>
           </div>
+          <span>선택 검사: {selectedCard?.displayName ?? "-"}</span>
         </div>
-        <div className="hepatitis-test-card-grid">
-          {data.tests.map((test) => (
-            <button
-              type="button"
-              className={`hepatitis-test-card ${
-                selectedTest.code === test.code ? "active" : ""
-              }`}
-              onClick={() => onSelectTest(test.code)}
-              key={test.code}
-            >
-              <span>{test.code}</span>
-              <b>{test.name}</b>
-              <strong>{formatPercent(test.rate)}</strong>
-              <small>
-                {formatCount(test.unacceptable)} / {formatCount(test.total)}건
-              </small>
-            </button>
-          ))}
-        </div>
-      </article>
 
-      <article className="panel statistics-panel hepatitis-grid-panel">
-        <div className="panel-head statistics-head">
-          <div>
-            <h3>{selectedTest.name} Unacceptable 집계</h3>
-            <p>검체명, 기준분류, 세분류, 검사결과별 부적합 건수</p>
+        <div
+          className="unacc-card-scroll urine-unacc-card-scroll"
+          aria-label="간염 검사항목별 Unacceptable 상세현황 카드 목록"
+        >
+          <div className="unacc-card-grid">
+            {cards.map((card) => {
+              const isSelected = selectedCard?.testCode === card.testCode;
+
+              return (
+                <article
+                  className={`unacc-card${isSelected ? " selected" : ""}`}
+                  key={card.testCode}
+                  role="button"
+                  tabIndex={0}
+                  aria-pressed={isSelected}
+                  onClick={() => selectCard(card)}
+                  onKeyDown={(event) => {
+                    if (event.key !== "Enter" && event.key !== " ") return;
+                    event.preventDefault();
+                    selectCard(card);
+                  }}
+                >
+                  <div className="unacc-card-title">
+                    <h4>{card.displayName}</h4>
+                  </div>
+                  <div className="unacc-card-metrics">
+                    <div>
+                      <span>결과건수</span>
+                      <strong>{formatCount(card.participating)}</strong>
+                    </div>
+                    <div>
+                      <span>Unacceptable</span>
+                      <strong className="danger">
+                        {formatCount(card.totalUnacceptable)}
+                      </strong>
+                    </div>
+                  </div>
+                  <div
+                    className={`unacc-specimen-grid ${
+                      card.specimens.length > 3 ? "has-four" : ""
+                    }`}
+                  >
+                    {card.specimens.map((specimen) => (
+                      <div
+                        className="unacc-specimen-cell"
+                        key={`${card.testCode}-${specimen.specimen}`}
+                      >
+                        <span>{specimen.specimen}</span>
+                        <b>{formatPercent(specimen.rate)}</b>
+                        <button
+                          type="button"
+                          className="unacc-count-button"
+                          aria-expanded={
+                            institutionTarget?.testCode === card.testCode &&
+                            institutionTarget?.specimen === specimen.specimen
+                          }
+                          onClick={(event) =>
+                            toggleAggregateList(event, card, specimen)
+                          }
+                        >
+                          {formatCount(specimen.count)}건
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </article>
+              );
+            })}
           </div>
         </div>
-        <AckDataGrid
-          className="statistics-grid"
-          data={visibleRows}
-          columns={hepatitisAggregateGridColumns}
-          getRowId={(row, index) => row.id ?? `hepatitis-unacc-${index}`}
-          paginationMode="pagination"
-          pageSize={20}
-          density="compact"
-          domLayout="autoHeight"
-          stickyHeader
-          enableExcelExport
-          excelFileName={`${selectedTest.code}_간염_Unacceptable집계.xlsx`}
-          aria-label="간염바이러스항원항체검사 Unacceptable 집계"
-        />
+
+        {institutionTarget && (
+          <div className="nonconformance-list" id="hepatitis-aggregate-list">
+            <div className="institution-list-head">
+              <h4>
+                {institutionTarget.testName} / {institutionTarget.specimen}{" "}
+                Unacceptable 집계
+              </h4>
+              <div className="institution-list-actions">
+                <span>
+                  전체{" "}
+                  {formatCount(
+                    selectedRows.reduce(
+                      (sum, row) => sum + Number(row.count ?? 0),
+                      0,
+                    ),
+                  )}
+                  건
+                </span>
+                <AckButton
+                  variant="secondary"
+                  size="small"
+                  onClick={() => setInstitutionTarget(null)}
+                >
+                  접기
+                </AckButton>
+              </div>
+            </div>
+            <AckDataGrid
+              className="institution-data-grid"
+              data={selectedRows}
+              columns={hepatitisAggregateGridColumns}
+              getRowId={(row, index) => row.id ?? `hepatitis-unacc-${index}`}
+              paginationMode="pagination"
+              pageSize={10}
+              density="compact"
+              domLayout="autoHeight"
+              stickyHeader
+              enableExcelExport
+              excelFileName={`${institutionTarget.testCode}_${institutionTarget.specimen}_간염_Unacceptable집계.xlsx`}
+              aria-label="간염바이러스항원항체검사 Unacceptable 집계"
+            />
+          </div>
+        )}
+
+        {selectedCard && (
+          <div className="result-distribution-section">
+            <div className="result-distribution-grid">
+              {selectedCard.specimens.map((specimen) => (
+                <div
+                  className={`result-distribution-shell ${
+                    institutionTarget?.specimen === specimen.specimen
+                      ? "selected"
+                      : ""
+                  }`}
+                  key={`${selectedCard.testCode}-${specimen.specimen}-dist`}
+                >
+                  <HepatitisResultDistributionMini
+                    rows={getHepatitisAggregateRows(
+                      data,
+                      selectedCard.testCode,
+                      specimen.specimen,
+                    )}
+                    selectedLabel={specimen.specimen}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </article>
     </section>
   );
 }
 
 function HepatitisQualitativeStatistics({ data }) {
+  const scopeOptions = [
+    { value: "all", label: "전체" },
+    { value: "acceptable", label: "Acceptable" },
+    { value: "unacceptable", label: "Unacceptable" },
+    { value: "notAvailable", label: "Not Available" },
+  ];
+  const [scope, setScope] = useState("all");
+  const rows = data.institutionRows;
+  const scopeCounts = {
+    all: rows.length,
+    acceptable: rows.filter((row) => row.judgment === "Acceptable").length,
+    unacceptable: rows.filter((row) => row.judgment === "Unacceptable").length,
+    notAvailable: rows.filter((row) => row.judgment === "Not Available").length,
+  };
+  const scopedRows =
+    scope === "all"
+      ? rows
+      : rows.filter((row) => {
+          if (scope === "acceptable") return row.judgment === "Acceptable";
+          if (scope === "unacceptable") return row.judgment === "Unacceptable";
+          return row.judgment === "Not Available";
+        });
+
   return (
     <section className="statistics-view hepatitis-statistics-view">
       <article className="panel statistics-panel hepatitis-grid-panel">
@@ -6811,18 +7405,41 @@ function HepatitisQualitativeStatistics({ data }) {
             <h3>기관별 정성 결과 상세</h3>
             <p>{data.latestPeriod.label} 원자료 기준</p>
           </div>
+          <div className="statistics-actions">
+            <span>
+              전체 {formatCount(rows.length)}건 / 범위{" "}
+              {formatCount(scopedRows.length)}건
+            </span>
+          </div>
+        </div>
+        <div className="statistics-scope-tabs" aria-label="정성 통계 범위 선택">
+          {scopeOptions.map((option) => (
+            <button
+              type="button"
+              className={scope === option.value ? "active" : ""}
+              key={option.value}
+              onClick={() => setScope(option.value)}
+            >
+              <span>{option.label}</span>
+              <em>{formatCount(scopeCounts[option.value])}</em>
+            </button>
+          ))}
         </div>
         <AckDataGrid
           className="statistics-grid"
-          data={data.institutionRows}
+          data={scopedRows}
           columns={hepatitisParticipationGridColumns}
           getRowId={(row, index) => row.id ?? `hepatitis-qual-${index}`}
+          enableSorting
+          enableMultiSort
+          enableColumnFilters
           paginationMode="pagination"
-          pageSize={20}
+          pageSize={50}
           density="compact"
           domLayout="autoHeight"
           stickyHeader
           enableExcelExport
+          enableVisibleExcelExport
           excelFileName="간염바이러스항원항체검사_기관별정성결과.xlsx"
           aria-label="간염바이러스항원항체검사 기관별 정성 결과"
         />
@@ -6903,79 +7520,70 @@ function HepatitisTrendChart({ trend }) {
 }
 
 function HepatitisTrendAnalysis({ data }) {
-  const rows = data.trend.map((row) => ({
-    id: row.key,
-    period: row.label,
-    institutionCount: row.institutionCount,
-    resultCount: row.total,
-    unacceptableCount: row.unacceptable,
-    unacceptableRate: formatPercent(row.rate),
-  }));
-  const columns = [
-    { field: "period", headerName: "회차", tooltip: "overflow", minWidth: 116 },
-    {
-      field: "institutionCount",
-      headerName: "참여기관수",
-      tooltip: "overflow",
-      minWidth: 104,
-      cellRenderer: ({ row }) => formatCount(row.institutionCount),
-    },
-    {
-      field: "resultCount",
-      headerName: "결과수",
-      tooltip: "overflow",
-      minWidth: 96,
-      cellRenderer: ({ row }) => formatCount(row.resultCount),
-    },
-    {
-      field: "unacceptableCount",
-      headerName: "Unacceptable",
-      tooltip: "overflow",
-      minWidth: 116,
-      cellRenderer: ({ row }) => formatCount(row.unacceptableCount),
-    },
-    {
-      field: "unacceptableRate",
-      headerName: "Unacceptable rate",
-      tooltip: "overflow",
-      minWidth: 132,
-    },
-  ];
+  const { periods, rows } = createHepatitisTrendAnalysisData(data);
+  const trendGridColumns = useMemo(
+    () => buildTrendGridColumns(periods, "검사항목"),
+    [periods],
+  );
+  const [selectedCode, setSelectedCode] = useState(rows[0]?.code ?? "");
+  const chartPanelRef = useRef(null);
+  const selectedRow =
+    rows.find((row) => row.code === selectedCode) ?? rows[0];
+
+  useEffect(() => {
+    if (!selectedCode && rows[0]?.code) {
+      setSelectedCode(rows[0].code);
+    }
+  }, [selectedCode, rows]);
+
+  const selectTrendRow = (rowCode) => {
+    setSelectedCode(rowCode);
+    window.requestAnimationFrame(() => {
+      chartPanelRef.current?.scrollIntoView({
+        block: "nearest",
+        behavior: "smooth",
+      });
+    });
+  };
 
   return (
-    <section className="statistics-view hepatitis-trend-view">
-      <article className="panel trend-analysis-chart-panel">
-        <div className="panel-head">
-          <div>
-            <h3>회차별 참여기관수와 Unacceptable Rate 추이</h3>
-            <p>2024년 01회차부터 최신 회차까지</p>
-          </div>
-        </div>
-        <div className="hepatitis-chart-frame">
-          <HepatitisTrendChart trend={data.trend} />
-        </div>
-      </article>
-      <article className="panel statistics-panel hepatitis-grid-panel">
-        <div className="panel-head statistics-head">
-          <div>
-            <h3>회차별 요약 테이블</h3>
-          </div>
+    <section className="trend-analysis-view urine-trend-analysis-view hepatitis-trend-view">
+      <article className="panel trend-analysis-panel">
+        <div className="trend-analysis-title">
+          <h3>검사항목별 Unacceptable Rate 추이 테이블</h3>
+          <span>추세 = 직전 회차 대비 변화</span>
         </div>
         <AckDataGrid
-          className="statistics-grid"
+          className="trend-grid"
           data={rows}
-          columns={columns}
-          getRowId={(row) => row.id}
-          paginationMode="pagination"
-          pageSize={10}
+          columns={trendGridColumns}
+          getRowId={(row) => row.code}
+          getRowClass={(row) =>
+            row.code === selectedRow?.code ? "is-selected" : undefined
+          }
+          onRowClick={(row) => selectTrendRow(row.code)}
           density="compact"
           domLayout="autoHeight"
           stickyHeader
-          enableExcelExport
-          excelFileName="간염바이러스항원항체검사_회차별추이.xlsx"
-          aria-label="간염바이러스항원항체검사 회차별 추이"
+          aria-label="간염 검사항목별 Unacceptable Rate 추이"
         />
       </article>
+
+      {selectedRow && (
+        <article
+          className="panel trend-analysis-chart-panel"
+          ref={chartPanelRef}
+        >
+          <div className="panel-head">
+            <div>
+              <h3>회차별 Unacc Rate 추이</h3>
+              <p>{selectedRow.displayName}</p>
+            </div>
+            <span>막대: 결과건수 / 선: Unacceptable Rate (%)</span>
+          </div>
+          <TrendAnalysisChart row={selectedRow} />
+        </article>
+      )}
     </section>
   );
 }

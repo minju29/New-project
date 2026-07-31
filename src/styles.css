@@ -387,10 +387,10 @@ button {
 }
 
 .hepatitis-overview-grid {
-  grid-template-columns: minmax(0, 1.25fr) minmax(360px, 0.75fr);
+  grid-template-columns: minmax(0, 1fr) minmax(420px, 0.95fr);
   grid-template-areas:
-    "chart detail"
-    "category category";
+    "chart chart"
+    "detail trend";
 }
 
 .panel {
@@ -1332,6 +1332,10 @@ button {
   grid-area: category;
 }
 
+.hepatitis-overview-trend {
+  grid-area: trend;
+}
+
 .hepatitis-chart-frame {
   height: 330px;
   min-height: 0;
@@ -1495,6 +1499,48 @@ button {
 
 .hepatitis-grid-panel {
   overflow: hidden;
+}
+
+.hepatitis-specimen-detail-card {
+  background: #fff;
+}
+
+.hepatitis-maker-button {
+  width: 100%;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.hepatitis-maker-button:hover,
+.hepatitis-maker-button.active {
+  background: #f5f7fb;
+}
+
+.hepatitis-maker-button:focus-visible {
+  outline: 2px solid var(--magenta);
+  outline-offset: 2px;
+}
+
+.hepatitis-selected-breakdown {
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.hepatitis-breakdown-layout {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.8fr) minmax(320px, 1.2fr);
+  gap: 12px;
+  align-items: stretch;
+  margin-bottom: 12px;
+}
+
+.hepatitis-result-card {
+  height: 100%;
 }
 
 .rate-chart {
@@ -2222,7 +2268,11 @@ button {
     grid-template-areas:
       "chart"
       "detail"
-      "category";
+      "trend";
+  }
+
+  .hepatitis-breakdown-layout {
+    grid-template-columns: 1fr;
   }
 }
 
