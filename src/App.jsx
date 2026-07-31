@@ -6601,20 +6601,64 @@ function createHepatitisResultDistributionRows(rows) {
 }
 
 function createHepatitisNonconformanceCards(data) {
+  const institutionRows = data?.institutionRows ?? [];
+  const hasInstitutionRows = institutionRows.length > 0;
+
   return (data?.tests ?? [])
-    .map((test) => ({
-      testCode: test.code,
-      testName: test.name,
-      displayName: test.name,
-      participating: test.total,
-      totalUnacceptable: test.unacceptable,
-      specimens: test.specimens.map((specimen) => ({
-        specimen: specimen.name,
-        count: specimen.unacceptable,
-        total: specimen.total,
-        rate: specimen.rate,
-      })),
-    }))
+    .map((test) => {
+      const testRows = institutionRows.filter(
+        (row) => row.testCode === test.code,
+      );
+      const participatingInstitutionCount = new Set(
+        testRows.map((row) => row.institutionCode).filter(Boolean),
+      ).size;
+      const unacceptableInstitutionCount = new Set(
+        testRows
+          .filter((row) => row.judgment === "Unacceptable")
+          .map((row) => row.institutionCode)
+          .filter(Boolean),
+      ).size;
+
+      return {
+        testCode: test.code,
+        testName: test.name,
+        displayName: test.name,
+        participating: hasInstitutionRows
+          ? participatingInstitutionCount
+          : test.total,
+        totalUnacceptable: hasInstitutionRows
+          ? unacceptableInstitutionCount
+          : test.unacceptable,
+        specimens: test.specimens.map((specimen) => {
+          const specimenRows = testRows.filter(
+            (row) => row.specimenName === specimen.name,
+          );
+          const specimenInstitutionCount = new Set(
+            specimenRows.map((row) => row.institutionCode).filter(Boolean),
+          ).size;
+          const specimenUnacceptableInstitutionCount = new Set(
+            specimenRows
+              .filter((row) => row.judgment === "Unacceptable")
+              .map((row) => row.institutionCode)
+              .filter(Boolean),
+          ).size;
+
+          return {
+            specimen: specimen.name,
+            count: hasInstitutionRows
+              ? specimenUnacceptableInstitutionCount
+              : specimen.unacceptable,
+            total: hasInstitutionRows ? specimenInstitutionCount : specimen.total,
+            rate:
+              hasInstitutionRows && specimenInstitutionCount > 0
+                ? (specimenUnacceptableInstitutionCount /
+                    specimenInstitutionCount) *
+                  100
+                : specimen.rate,
+          };
+        }),
+      };
+    })
     .sort(
       (left, right) =>
         right.totalUnacceptable - left.totalUnacceptable ||
@@ -7277,7 +7321,7 @@ function HepatitisNonconformanceAnalysis({ data, selectedTest, onSelectTest }) {
                   </div>
                   <div className="unacc-card-metrics">
                     <div>
-                      <span>결과건수</span>
+                      <span>참가기관수</span>
                       <strong>{formatCount(card.participating)}</strong>
                     </div>
                     <div>
@@ -7310,7 +7354,7 @@ function HepatitisNonconformanceAnalysis({ data, selectedTest, onSelectTest }) {
                             toggleAggregateList(event, card, specimen)
                           }
                         >
-                          {formatCount(specimen.count)}건
+                          {formatCount(specimen.count)}기관
                         </button>
                       </div>
                     ))}
