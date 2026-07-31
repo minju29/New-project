@@ -7453,8 +7453,21 @@ function HepatitisNonconformanceAnalysis({ data, selectedTest, onSelectTest }) {
 
 function createHepatitisQualitativeStatisticsRows(data) {
   const groupMap = new Map();
+  const sourceRows =
+    data?.institutionRows?.length > 0
+      ? data.institutionRows.map((row) => ({
+          testCode: row.testCode,
+          testName: row.testName,
+          specimenName: row.specimenName,
+          baseCategory: row.baseCategory,
+          result: row.result,
+          answer: row.answer,
+          acceptability: row.judgment,
+          count: 1,
+        }))
+      : (data?.aggregateRows ?? []);
 
-  (data?.aggregateRows ?? []).forEach((row) => {
+  sourceRows.forEach((row) => {
     const groupKey = [
       row.testCode,
       row.testName,
@@ -7479,7 +7492,9 @@ function createHepatitisQualitativeStatisticsRows(data) {
 
     const group = groupMap.get(groupKey);
     group.total += count;
-    if (row.acceptability === "Acceptable") {
+    if (row.answer) {
+      group.acceptableResults.add(row.answer);
+    } else if (row.acceptability === "Acceptable") {
       group.acceptableResults.add(row.result);
     }
     if (!group.resultMap.has(resultKey)) {
@@ -7512,7 +7527,7 @@ function createHepatitisQualitativeStatisticsRows(data) {
         검사명: group.testName,
         검체명: group.specimenName,
         기준분류: group.baseCategory,
-        "보고한 결과": resultRow.result,
+        "보고된 결과": resultRow.result,
         결과선택기관수_전체: group.total,
         결과선택기관수_선택: resultRow.count,
         결과선택기관수_비율:
