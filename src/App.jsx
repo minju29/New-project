@@ -710,6 +710,16 @@ const hepatitisAggregateGridColumns = [
   },
 ];
 
+const hepatitisNonconformanceInstitutionColumns = [
+  { key: "no", label: "No" },
+  { key: "code", label: "기관코드" },
+  { key: "name", label: "기관명" },
+  { key: "result", label: "결과" },
+  { key: "answer", label: "정답" },
+  { key: "instrument", label: "기준분류" },
+  { key: "maker", label: "세분류" },
+];
+
 const urineNonconformanceInstitutionColumns = [
   { key: "no", label: "No" },
   { key: "code", label: "기관코드" },
@@ -6612,6 +6622,20 @@ function createHepatitisNonconformanceCards(data) {
     );
 }
 
+function toHepatitisNonconformanceInstitutionRow(row, index = 0) {
+  return {
+    id: row.id ?? `hepatitis-nonconformance-${index}`,
+    __no: index + 1,
+    code: row.institutionCode,
+    name: row.institutionName || "-",
+    result: row.result || "-",
+    answer: row.answer || "-",
+    instrument: row.baseCategory || "-",
+    maker: row.detailCategory || "-",
+    count: 1,
+  };
+}
+
 function createHepatitisTrendAnalysisData(data) {
   const periods = (data?.trend ?? []).map((period, index, rows) => ({
     key: period.key,
@@ -7181,11 +7205,14 @@ function HepatitisNonconformanceAnalysis({ data, selectedTest, onSelectTest }) {
   const selectedCard =
     cards.find((card) => card.testCode === selectedTest.code) ?? cards[0];
   const selectedRows = institutionTarget
-    ? getHepatitisAggregateRows(
-        data,
-        institutionTarget.testCode,
-        institutionTarget.specimen,
-      ).filter((row) => row.acceptability === "Unacceptable")
+    ? (data?.institutionRows ?? [])
+        .filter(
+          (row) =>
+            row.testCode === institutionTarget.testCode &&
+            row.specimenName === institutionTarget.specimen &&
+            row.judgment === "Unacceptable",
+        )
+        .map(toHepatitisNonconformanceInstitutionRow)
     : [];
 
   const selectCard = (card) => {
@@ -7295,6 +7322,16 @@ function HepatitisNonconformanceAnalysis({ data, selectedTest, onSelectTest }) {
         </div>
 
         {institutionTarget && (
+          <NonconformanceInstitutionGrid
+            rows={selectedRows}
+            selectedTest={{ code: institutionTarget.testName }}
+            selectedSpecimen={{ key: institutionTarget.specimen }}
+            onClose={() => setInstitutionTarget(null)}
+            columns={hepatitisNonconformanceInstitutionColumns}
+          />
+        )}
+
+        {false && institutionTarget && (
           <div className="nonconformance-list" id="hepatitis-aggregate-list">
             <div className="institution-list-head">
               <h4>
@@ -7324,7 +7361,9 @@ function HepatitisNonconformanceAnalysis({ data, selectedTest, onSelectTest }) {
             <AckDataGrid
               className="institution-data-grid"
               data={selectedRows}
-              columns={hepatitisAggregateGridColumns}
+              columns={toInstitutionGridColumns(
+                hepatitisNonconformanceInstitutionColumns,
+              )}
               getRowId={(row, index) => row.id ?? `hepatitis-unacc-${index}`}
               paginationMode="pagination"
               pageSize={10}
