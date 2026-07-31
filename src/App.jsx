@@ -7373,65 +7373,110 @@ function HepatitisNonconformanceAnalysis({ data, selectedTest, onSelectTest }) {
   );
 }
 
+function createHepatitisQualitativeStatisticsRows(data) {
+  const groupMap = new Map();
+
+  (data?.aggregateRows ?? []).forEach((row) => {
+    const groupKey = [
+      row.testCode,
+      row.testName,
+      row.specimenName,
+      row.baseCategory,
+    ].join("||");
+    const resultKey = [groupKey, row.result, row.acceptability].join("||");
+    const count = Number(row.count ?? 0);
+
+    if (!Number.isFinite(count) || count <= 0) return;
+    if (!groupMap.has(groupKey)) {
+      groupMap.set(groupKey, {
+        testCode: row.testCode,
+        testName: row.testName,
+        specimenName: row.specimenName,
+        baseCategory: row.baseCategory,
+        total: 0,
+        acceptableResults: new Set(),
+        resultMap: new Map(),
+      });
+    }
+
+    const group = groupMap.get(groupKey);
+    group.total += count;
+    if (row.acceptability === "Acceptable") {
+      group.acceptableResults.add(row.result);
+    }
+    if (!group.resultMap.has(resultKey)) {
+      group.resultMap.set(resultKey, {
+        result: row.result,
+        acceptability: row.acceptability,
+        count: 0,
+      });
+    }
+    group.resultMap.get(resultKey).count += count;
+  });
+
+  return Array.from(groupMap.values()).flatMap((group, groupIndex) => {
+    const intendedAnswer =
+      Array.from(group.acceptableResults)
+        .filter(Boolean)
+        .sort(sortChemistryLabels)
+        .join(", ") || "-";
+
+    return Array.from(group.resultMap.values())
+      .sort(
+        (left, right) =>
+          sortChemistryLabels(left.result, right.result) ||
+          sortChemistryLabels(left.acceptability, right.acceptability),
+      )
+      .map((resultRow, resultIndex) => ({
+        id: `hep-qual-${groupIndex}-${resultIndex}`,
+        프로그램명: "간염바이러스항원항체검사",
+        상위검사명: group.testCode,
+        검사명: group.testName,
+        검체명: group.specimenName,
+        기준분류: group.baseCategory,
+        "보고한 결과": resultRow.result,
+        결과선택기관수_전체: group.total,
+        결과선택기관수_선택: resultRow.count,
+        결과선택기관수_비율:
+          group.total > 0 ? (resultRow.count / group.total) * 100 : 0,
+        "운영자 정답(INTENDED)": intendedAnswer,
+        "운영자 Remark":
+          resultRow.acceptability === "Not Available"
+            ? "Not Available"
+            : "",
+        "운영자 판정": resultRow.acceptability,
+      }));
+  });
+}
+
 function HepatitisQualitativeStatistics({ data }) {
-  const scopeOptions = [
-    { value: "all", label: "전체" },
-    { value: "acceptable", label: "Acceptable" },
-    { value: "unacceptable", label: "Unacceptable" },
-    { value: "notAvailable", label: "Not Available" },
-  ];
-  const [scope, setScope] = useState("all");
-  const rows = data.institutionRows;
-  const scopeCounts = {
-    all: rows.length,
-    acceptable: rows.filter((row) => row.judgment === "Acceptable").length,
-    unacceptable: rows.filter((row) => row.judgment === "Unacceptable").length,
-    notAvailable: rows.filter((row) => row.judgment === "Not Available").length,
-  };
-  const scopedRows =
-    scope === "all"
-      ? rows
-      : rows.filter((row) => {
-          if (scope === "acceptable") return row.judgment === "Acceptable";
-          if (scope === "unacceptable") return row.judgment === "Unacceptable";
-          return row.judgment === "Not Available";
-        });
+  const sourceRows = useMemo(
+    () => createHepatitisQualitativeStatisticsRows(data),
+    [data],
+  );
+  const gridRows = useMemo(
+    () => normalizeQualitativeStatisticsRows(sourceRows),
+    [sourceRows],
+  );
 
   return (
-    <section className="statistics-view hepatitis-statistics-view">
-      <article className="panel statistics-panel hepatitis-grid-panel">
+    <section className="statistics-view qualitative-statistics-view hepatitis-statistics-view">
+      <article className="panel statistics-panel qualitative-statistics-panel hepatitis-grid-panel">
         <div className="panel-head statistics-head">
           <div>
-            <h3>기관별 정성 결과 상세</h3>
-            <p>{data.latestPeriod.label} 원자료 기준</p>
+            <h3>검사항목별 정성 판정</h3>
+            <p>운영자 정답 및 판정 결과를 한 화면에서 확인합니다.</p>
           </div>
           <div className="statistics-actions">
-            <span>
-              전체 {formatCount(rows.length)}건 / 범위{" "}
-              {formatCount(scopedRows.length)}건
-            </span>
+            <span>전체 {formatCount(sourceRows.length)}건</span>
           </div>
         </div>
-        <div className="statistics-scope-tabs" aria-label="정성 통계 범위 선택">
-          {scopeOptions.map((option) => (
-            <button
-              type="button"
-              className={scope === option.value ? "active" : ""}
-              key={option.value}
-              onClick={() => setScope(option.value)}
-            >
-              <span>{option.label}</span>
-              <em>{formatCount(scopeCounts[option.value])}</em>
-            </button>
-          ))}
-        </div>
+
         <AckDataGrid
-          className="statistics-grid"
-          data={scopedRows}
-          columns={hepatitisParticipationGridColumns}
+          data={gridRows}
+          columns={qualitativeGridColumns}
           getRowId={(row, index) => row.id ?? `hepatitis-qual-${index}`}
           enableSorting
-          enableMultiSort
           enableColumnFilters
           paginationMode="pagination"
           pageSize={50}
@@ -7439,9 +7484,8 @@ function HepatitisQualitativeStatistics({ data }) {
           domLayout="autoHeight"
           stickyHeader
           enableExcelExport
-          enableVisibleExcelExport
-          excelFileName="간염바이러스항원항체검사_기관별정성결과.xlsx"
-          aria-label="간염바이러스항원항체검사 기관별 정성 결과"
+          excelFileName="간염바이러스항원항체검사_검사항목별_정성판정.xlsx"
+          aria-label="간염바이러스항원항체검사 정성 판정"
         />
       </article>
     </section>
