@@ -6497,11 +6497,6 @@ function HepatitisSummaryCards({ data, onOpenParticipationList, onOpenTestList }
       onClick: onOpenTestList,
     },
     { label: "검체 수", value: data.summary.specimenCount, unit: "개" },
-    {
-      label: "Unacceptable rate",
-      value: formatPercent(data.summary.unacceptableRate),
-      unit: "",
-    },
   ];
 
   return (
@@ -6900,7 +6895,7 @@ function HepatitisDoughnutChart({
           if (target) target.style.cursor = elements.length ? "pointer" : "default";
         },
         plugins: {
-          legend: { position: "bottom" },
+          legend: { display: false },
           tooltip: {
             callbacks: {
               label: (item) => {
